@@ -7,7 +7,7 @@ def test_load_blueprint_defaults():
     bp = load_blueprint(Path("blueprints/example"))
     assert bp.deploy.health_path == "/healthz"
     assert bp.deploy.health_port == 8080
-    assert bp.verify.timeout_sec == 5
+    assert bp.verify.timeout_sec == 60
 
 
 def test_validate_blueprint_dir_success():

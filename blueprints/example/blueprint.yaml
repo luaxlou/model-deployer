@@ -11,7 +11,7 @@ model:
   code: model/model.py
   weights:
     - name: model-weights
-      url: https://example.com/model.bin
+      url: https://huggingface.co/hf-internal-testing/tiny-random-BertModel/resolve/main/config.json
 
 deploy:
   health_path: /healthz
@@ -19,5 +19,5 @@ deploy:
   start_command: python service.py
 
 verify:
-  timeout_sec: 5
-  interval_sec: 1
+  timeout_sec: 60
+  interval_sec: 2

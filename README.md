@@ -88,6 +88,32 @@ mdp deploy -d ./blueprints/example
 make smoke
 ```
 
+## 本地极小模型验证
+
+示例工程 `blueprints/example` 内置了一个极小线性模型（`TinyLinearModel`），用于本地部署链路测试。
+
+1. 启动本地服务：
+
+```bash
+cd blueprints/example
+uvicorn service:app --host 127.0.0.1 --port 8080
+```
+
+2. 在另一个终端执行部署命令（会走 `lint -> build -> rollout -> verify`）：
+
+```bash
+cd /path/to/model-deploy-platform
+mdp deploy -d ./blueprints/example
+```
+
+3. 手动预测测试：
+
+```bash
+curl -X POST http://127.0.0.1:8080/predict \
+  -H "Content-Type: application/json" \
+  -d '{"x1": 1.5, "x2": 0.2}'
+```
+
 ## Core Features
 - Blueprint 目录输入（单目录即单部署单元）
 - 无状态命令执行（不依赖平台侧状态管理）
