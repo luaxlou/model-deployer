@@ -1,4 +1,4 @@
-.PHONY: install test lint plan build deploy
+.PHONY: install test lint plan build deploy smoke
 
 install:
 	python3 -m pip install -e .
@@ -17,3 +17,6 @@ build:
 
 deploy:
 	python3 -m mdp_cli.main deploy -d ./blueprints/example
+
+smoke:
+	bash ./scripts/smoke_cli.sh

@@ -8,7 +8,8 @@ Stateless CLI for blueprint-driven model deployment.
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
-mdp --help
+mdp lint -d ./blueprints/example
+mdp deploy -d ./blueprints/example
 ```
 
 ## CLI Usage
@@ -79,6 +80,12 @@ mdp lint -d ./blueprints/example
 mdp plan -d ./blueprints/example
 mdp build -d ./blueprints/example
 mdp deploy -d ./blueprints/example
+```
+
+或运行一键 smoke：
+
+```bash
+make smoke
 ```
 
 ## Core Features
