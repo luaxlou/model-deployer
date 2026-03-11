@@ -91,7 +91,7 @@ make smoke
 
 ## 本地极小模型验证
 
-示例工程 `blueprints/example` 内置了一个极小线性模型（`TinyLinearModel`），用于本地 Docker 部署链路测试。
+示例工程 `blueprints/example` 内置了一个真实训练的极小 sklearn 模型（`TinySklearnModel` + `tiny_model.joblib`），用于本地 Docker 部署链路测试。
 
 1. 执行完整部署（会自动 `docker build` + `docker run`）：
 

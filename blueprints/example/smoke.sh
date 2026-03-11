@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENDPOINT="${MDP_ENDPOINT:-http://127.0.0.1:18080}"
+if [[ -z "${MDP_ENDPOINT:-}" ]]; then
+  HOST_PORT=$(docker inspect -f '{{(index (index .NetworkSettings.Ports "18080/tcp") 0).HostPort}}' example-model-prod 2>/dev/null || true)
+  if [[ -z "${HOST_PORT}" ]]; then
+    ENDPOINT="http://127.0.0.1:18080"
+  else
+    ENDPOINT="http://127.0.0.1:${HOST_PORT}"
+  fi
+else
+  ENDPOINT="${MDP_ENDPOINT}"
+fi
 
 curl -fsS "${ENDPOINT}/healthz" >/dev/null
 

@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from model.model import TinyLinearModel
+from model.model import TinySklearnModel
 
 app = FastAPI()
-model = TinyLinearModel()
+model = TinySklearnModel()
 
 
 class PredictRequest(BaseModel):
