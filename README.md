@@ -9,6 +9,10 @@ make test
 make run
 ```
 
+## Glow Prompt
+
+- 可直接复制的 glow 引入提示词：[`docs/glow_prompt.md`](./docs/glow_prompt.md)
+
 ## Core Features
 - Provider-agnostic deployment spec
 - EAS adapter (first provider)
