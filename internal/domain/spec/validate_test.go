@@ -9,10 +9,10 @@ func TestDeploymentSpecValidation(t *testing.T) {
 	}
 
 	valid := DeploymentSpec{
-		BaseImage: BaseImage{Digest: "sha256:abc"},
-		RuntimePack: RuntimePack{RequirementsLock: "hash"},
-		ModelArtifact: ModelArtifact{ArtifactVersion: "1.0.0"},
-		WeightAsset: WeightAsset{Checksum: "sha256:def"},
+		BaseImage:      BaseImage{Digest: "sha256:abc"},
+		RuntimePack:    RuntimePack{RequirementsLock: "hash"},
+		ModelArtifact:  ModelArtifact{ArtifactVersion: "1.0.0"},
+		WeightAsset:    WeightAsset{Checksum: "sha256:def"},
 		ComputeProfile: ComputeProfile{Provider: "eas"},
 	}
 	if err := ValidateDeploymentSpec(valid); err != nil {

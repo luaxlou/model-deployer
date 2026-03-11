@@ -1,0 +1,38 @@
+openapi: 3.1.0
+info:
+  title: Model Deploy Platform API
+  version: 0.1.0
+paths:
+  /healthz:
+    get:
+      responses:
+        '200':
+          description: ok
+  /deployments:
+    post:
+      responses:
+        '200':
+          description: operation created
+  /debug/sessions/{id}/invoke:
+    post:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: invoked
+  /ops/costs:
+    get:
+      parameters:
+        - in: query
+          name: deploymentId
+          schema: { type: string }
+        - in: query
+          name: groupBy
+          schema: { type: string }
+      responses:
+        '200':
+          description: cost aggregation

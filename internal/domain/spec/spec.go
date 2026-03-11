@@ -33,13 +33,13 @@ type WeightAsset struct {
 }
 
 type ComputeProfile struct {
-	Provider    string
+	Provider     string
 	InstanceType string
-	GPU         int
-	CPU         int
-	MemoryGB    int
-	Autoscaling bool
-	SpotPolicy  string
+	GPU          int
+	CPU          int
+	MemoryGB     int
+	Autoscaling  bool
+	SpotPolicy   string
 }
 
 type DeploymentSpec struct {
