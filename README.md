@@ -1,6 +1,11 @@
 # Model Deployer
 
-Stateless, local-first CLI for model deployment.
+`model-deployer` 是一个无状态、目录驱动的模型部署 CLI。
+
+核心定位：
+- 一个 blueprint 目录就是一个部署单元
+- 命令即流程，无需平台侧状态管理
+- 本地优先（Docker），可逐步扩展到云 provider
 
 ## Quick Start
 
@@ -8,13 +13,14 @@ Stateless, local-first CLI for model deployment.
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
+
 mdp lint -d ./blueprints/example
-mdp deploy -d ./blueprints/example
+mdp deploy -d ./blueprints/example --provider local
 ```
 
-## CLI Usage
+## 输入模型
 
-`mdp` 采用目录输入模式，默认最少参数可执行：
+统一输入：
 
 ```bash
 mdp <subcommand> -d <blueprint_dir>
@@ -22,49 +28,61 @@ mdp <subcommand> -d <blueprint_dir>
 
 Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 
-### 全局默认
-- `-d` 必填：`<blueprint_dir>`
-- `--provider` 默认：`local`
-- `--follow` 默认：`true`
-- `--on-fail` 默认：`rollback`
-- `--env` 默认：`prod`
+## 多工具能力
 
-### deploy 默认流水线
-不额外传参时，`mdp deploy` 自动执行：
+### 1) 质量与规划
 
+- `mdp lint -d <dir>`：校验 blueprint 文件、关键字段与必需文件
+- `mdp plan -d <dir> [--out plan.json]`：输出执行计划与默认参数
+
+### 2) 构建与发布
+
+- `mdp build -d <dir> [--provider local]`：构建镜像并输出 image
+- `mdp rollout -d <dir> --image <image> [--provider local]`：启动部署并输出 `endpoint/container_name/status`
+- `mdp deploy -d <dir> [--provider local]`：一键执行 `lint -> build -> rollout -> verify`
+
+### 3) 验证与回滚
+
+- `mdp verify -d <dir>`：执行健康检查 + 可选 `smoke.sh`
+- `mdp rollback -d <dir> --to <image>`：回滚到指定镜像（local 模式要求显式镜像）
+
+### 4) 观测与运维
+
+- `mdp status -d <dir>`：查看当前部署状态
+- `mdp logs -d <dir> [--tail 200]`：查看日志
+- `mdp cost -d <dir> [--group-by deployment]`：成本视图（local 为 0）
+
+## 默认参数与行为
+
+全局默认：
+- `--provider`: `local`
+- `--follow`: `true`
+- `--on-fail`: `rollback`
+- `--env`: `prod`
+
+`mdp deploy` 默认流水线：
 1. `lint`
 2. `build`
 3. `rollout`
 4. `verify`
 
-### blueprint.yaml 字段默认
-- `build.context`：`.`
-- `build.dockerfile`：`Dockerfile`
-- `build.requirements`：`requirements.txt`
-- `build.service`：`service.py`
-- `deploy.health_path`：`/healthz`
-- `deploy.health_port`：`18080`（示例）
-- `deploy.start_command`：`uvicorn service:app --host 0.0.0.0 --port 18080`（示例）
-- `verify.timeout_sec`：`300`
-- `verify.interval_sec`：`5`
+自动行为：
+- 若存在 `<blueprint_dir>/smoke.sh`，自动执行
+- `weights` 从 `blueprint.yaml` 的 `model.weights` 读取
+- local provider 自动选择可用主机端口，避免端口冲突
 
-### 自动行为
-- 若存在 `<blueprint_dir>/smoke.sh`，自动执行 smoke；不存在则跳过。
-- `weights` 从 `blueprint.yaml` 的 `model.weights` 读取，不再依赖额外文件。
-- local provider 自动选择可用主机端口，避免端口冲突。
+## 输出约定（无状态）
 
-### 最简执行
-```bash
-mdp deploy -d ./blueprints/bert-prod
-```
+核心命令输出优先返回：
+- `image`
+- `status`
+- `endpoint`
+- `container_name`
 
-等价于：
+不返回平台化状态字段（如 operation_id）。
 
-```bash
-mdp deploy -d ./blueprints/bert-prod --provider local --follow --on-fail rollback --env prod
-```
+## 失败返回码
 
-### 失败返回码
 - `0`：成功
 - `2`：blueprint 校验失败
 - `3`：构建失败
@@ -72,44 +90,35 @@ mdp deploy -d ./blueprints/bert-prod --provider local --follow --on-fail rollbac
 - `5`：验证失败
 - `6`：回滚失败
 
-## 示例 Blueprint 目录
+## 示例工程（真实可实验小模型）
 
-仓库内提供了可直接执行的示例目录：
+`blueprints/example` 内置真实训练的极小 sklearn 模型（`tiny_model.joblib`）。
+
+常用命令：
 
 ```bash
 mdp lint -d ./blueprints/example
 mdp plan -d ./blueprints/example
 mdp build -d ./blueprints/example
-mdp deploy -d ./blueprints/example
+mdp deploy -d ./blueprints/example --provider local
 ```
 
-或运行一键 smoke：
+一键 smoke：
 
 ```bash
 make smoke
 ```
 
-## 本地极小模型验证
-
-示例工程 `blueprints/example` 内置了一个真实训练的极小 sklearn 模型（`TinySklearnModel` + `tiny_model.joblib`），用于本地 Docker 部署链路测试。
-
-1. 执行完整部署（会自动 `docker build` + `docker run`）：
+手动预测（将 `<endpoint>` 替换为 deploy 输出）：
 
 ```bash
-mdp deploy -d ./blueprints/example --provider local
-```
-
-2. 手动预测测试：
-
-```bash
-curl -X POST http://127.0.0.1:18080/predict \
+curl -X POST <endpoint>/predict \
   -H "Content-Type: application/json" \
   -d '{"x1": 1.5, "x2": 0.2}'
 ```
 
-## Core Features
-- Blueprint 目录输入（单目录即单部署单元）
-- 无状态命令执行（不依赖平台侧状态管理）
-- 默认流水线：`lint -> build -> rollout -> verify`
-- 失败自动回滚（默认 `--on-fail rollback`）
-- local provider 适配（Docker 本地执行）
+## Provider 能力现状
+
+- `local`：已实现，基于真实 Docker build/run/logs/inspect
+- `eas`：当前兼容映射到 local 行为（占位）
+- `pai`：下一步接入目标（建议通过独立 provider 模块实现）
