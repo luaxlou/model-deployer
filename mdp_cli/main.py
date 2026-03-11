@@ -82,8 +82,6 @@ def rollout(
     res = run_rollout(d, provider=provider, image=image, env=env)
     _echo_json(
         {
-            "operation_id": res.operation_id,
-            "provider_id": res.provider_id,
             "status": res.status,
             "endpoint": res.endpoint,
             "container_name": res.container_name,
@@ -136,8 +134,6 @@ def rollback(
     res = run_rollback(d, provider=provider, to=to)
     _echo_json(
         {
-            "operation_id": res.operation_id,
-            "provider_id": res.provider_id,
             "status": res.status,
             "endpoint": res.endpoint,
             "container_name": res.container_name,

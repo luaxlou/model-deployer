@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from hashlib import sha256
 from pathlib import Path
 import json
 import re
@@ -14,8 +13,6 @@ from mdp_cli.blueprint import Blueprint
 
 @dataclass
 class RolloutResult:
-    operation_id: str
-    provider_id: str
     status: str
     endpoint: str
     container_name: str
@@ -81,12 +78,9 @@ class LocalProvider:
         if bp.deploy.start_command:
             run_cmd.extend(["sh", "-lc", bp.deploy.start_command])
 
-        cid = _run(run_cmd)
-        op = sha256(f"{bp.name}:{cid}:{env}".encode("utf-8")).hexdigest()[:12]
+        _run(run_cmd)
         endpoint = f"http://127.0.0.1:{host_port}"
         return RolloutResult(
-            operation_id=f"op-{op}",
-            provider_id=container_name,
             status="running",
             endpoint=endpoint,
             container_name=container_name,

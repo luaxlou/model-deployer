@@ -87,9 +87,9 @@ def deploy(blueprint_dir: Path, provider: str, env: str, on_fail: str) -> dict:
             "ok": True,
             "stage": "done",
             "image": image,
-            "operation_id": rollout_res.operation_id,
-            "provider_id": rollout_res.provider_id,
+            "status": rollout_res.status,
             "endpoint": rollout_res.endpoint,
+            "container_name": rollout_res.container_name,
         }
 
     if on_fail == "rollback":
@@ -98,7 +98,7 @@ def deploy(blueprint_dir: Path, provider: str, env: str, on_fail: str) -> dict:
             "ok": False,
             "stage": "verify",
             "message": msg,
-            "rollback_operation_id": rollback_res.operation_id,
+            "rollback_container_name": rollback_res.container_name,
         }
 
     return {"ok": False, "stage": "verify", "message": msg}
