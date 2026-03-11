@@ -5,6 +5,7 @@ from pathlib import Path
 import json
 import re
 import socket
+import shlex
 import subprocess
 import time
 
@@ -119,9 +120,103 @@ class EasProvider(LocalProvider):
     name = "eas"
 
 
+def _render_cmd(template: str, params: dict[str, str]) -> list[str]:
+    text = template
+    for k, v in params.items():
+        text = text.replace("{" + k + "}", v)
+    return shlex.split(text)
+
+
+class PaiProvider:
+    name = "pai"
+
+    def _ensure_cli(self) -> None:
+        proc = subprocess.run(["aliyun", "--version"], capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError("aliyun CLI is required for provider=pai")
+
+    def _params(self, bp: Blueprint, image: str = "") -> dict[str, str]:
+        return {
+            "name": bp.name,
+            "service_name": bp.pai.service_name or bp.name,
+            "image": image,
+            "region": bp.pai.region,
+            "workspace_id": bp.pai.workspace_id,
+            "instance_type": bp.pai.instance_type,
+            "replicas": str(bp.pai.replicas),
+            "endpoint": bp.pai.endpoint,
+        }
+
+    def build_image(self, blueprint_dir: Path, bp: Blueprint) -> str:
+        # For PAI, either use fixed image or build+push to configured image_repo.
+        if bp.pai.image:
+            return bp.pai.image
+        if not bp.pai.image_repo:
+            raise RuntimeError("pai.image or pai.image_repo is required")
+
+        local_tag = f"mdp-{_safe_name(bp.name)}:{int(time.time())}"
+        context_dir = (blueprint_dir / bp.build.context).resolve()
+        dockerfile = (blueprint_dir / bp.build.dockerfile).resolve()
+        remote_tag = f"{bp.pai.image_repo}:{int(time.time())}"
+
+        _run(["docker", "build", "-t", local_tag, "-f", str(dockerfile), str(context_dir)])
+        _run(["docker", "tag", local_tag, remote_tag])
+        _run(["docker", "push", remote_tag])
+        return remote_tag
+
+    def rollout(self, bp: Blueprint, image: str, env: str) -> RolloutResult:
+        _ = env
+        self._ensure_cli()
+        params = self._params(bp, image=image)
+        cmd = _render_cmd(bp.pai.deploy_cmd, params)
+        _run(cmd)
+        endpoint = bp.pai.endpoint
+        if not endpoint:
+            raise RuntimeError("pai.endpoint is required for verify after rollout")
+        return RolloutResult(status="running", endpoint=endpoint, container_name=params["service_name"])
+
+    def rollback(self, bp: Blueprint, to: str) -> RolloutResult:
+        self._ensure_cli()
+        if not bp.pai.rollback_cmd:
+            raise RuntimeError("pai.rollback_cmd is required for provider=pai")
+        params = self._params(bp, image=to)
+        cmd = _render_cmd(bp.pai.rollback_cmd, params)
+        _run(cmd)
+        endpoint = bp.pai.endpoint
+        if not endpoint:
+            raise RuntimeError("pai.endpoint is required after rollback")
+        return RolloutResult(status="running", endpoint=endpoint, container_name=params["service_name"])
+
+    def status(self, bp: Blueprint) -> dict:
+        self._ensure_cli()
+        params = self._params(bp, image=bp.pai.image)
+        cmd = _render_cmd(bp.pai.status_cmd, params)
+        out = _run(cmd)
+        return {"deployment": bp.name, "provider": self.name, "status_raw": out}
+
+    def logs(self, bp: Blueprint, tail: int) -> list[str]:
+        self._ensure_cli()
+        params = self._params(bp, image=bp.pai.image)
+        params["tail"] = str(tail)
+        cmd = _render_cmd(bp.pai.logs_cmd, params)
+        out = _run(cmd)
+        return out.splitlines()
+
+    def cost(self, bp: Blueprint, group_by: str) -> dict:
+        self._ensure_cli()
+        if not bp.pai.cost_cmd:
+            return {"deployment": bp.name, "group_by": group_by, "total_usd": -1}
+        params = self._params(bp, image=bp.pai.image)
+        params["group_by"] = group_by
+        out = _run(_render_cmd(bp.pai.cost_cmd, params))
+        return {"deployment": bp.name, "group_by": group_by, "cost_raw": out}
+
+
 def get_provider(name: str):
     if name == "local":
         return LocalProvider()
     if name == "eas":
         return EasProvider()
+    if name == "pai":
+        return PaiProvider()
     raise ValueError(f"unsupported provider: {name}")

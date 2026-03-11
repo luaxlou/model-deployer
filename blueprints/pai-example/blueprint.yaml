@@ -1,0 +1,45 @@
+name: pai-example
+provider: pai
+
+build:
+  context: .
+  dockerfile: Dockerfile
+  requirements: requirements.txt
+  service: service.py
+
+model:
+  code: model/model.py
+  weights:
+    - name: model-weights
+      url: https://huggingface.co/hf-internal-testing/tiny-random-BertModel/resolve/main/config.json
+
+deploy:
+  health_path: /healthz
+  health_port: 18080
+  start_command: uvicorn service:app --host 0.0.0.0 --port 18080
+
+verify:
+  timeout_sec: 120
+  interval_sec: 5
+
+pai:
+  region: cn-hangzhou
+  workspace_id: "your-workspace-id"
+  service_name: pai-example
+  endpoint: https://your-pai-endpoint.example.com
+  image_repo: registry.cn-hangzhou.aliyuncs.com/your-namespace/pai-example
+  deploy_cmd: >-
+    aliyun pai CreateService --RegionId {region} --WorkspaceId {workspace_id}
+    --ServiceName {service_name} --Image {image}
+  status_cmd: >-
+    aliyun pai GetService --RegionId {region} --WorkspaceId {workspace_id}
+    --ServiceName {service_name}
+  logs_cmd: >-
+    aliyun pai ListServiceLogs --RegionId {region} --WorkspaceId {workspace_id}
+    --ServiceName {service_name} --PageSize {tail}
+  rollback_cmd: >-
+    aliyun pai UpdateService --RegionId {region} --WorkspaceId {workspace_id}
+    --ServiceName {service_name} --Image {image}
+  cost_cmd: >-
+    aliyun pai QueryServiceCost --RegionId {region} --WorkspaceId {workspace_id}
+    --ServiceName {service_name}

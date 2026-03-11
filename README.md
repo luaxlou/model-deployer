@@ -121,4 +121,32 @@ curl -X POST <endpoint>/predict \
 
 - `local`：已实现，基于真实 Docker build/run/logs/inspect
 - `eas`：当前兼容映射到 local 行为（占位）
-- `pai`：下一步接入目标（建议通过独立 provider 模块实现）
+- `pai`：已接入命令模板执行链（依赖 `aliyun` CLI + `blueprint.pai` 配置）
+
+## PAI 使用说明（命令模板模式）
+
+`provider: pai` 时，`mdp` 会按 `blueprint.yaml` 中 `pai.*_cmd` 执行真实命令：
+
+- `pai.deploy_cmd`
+- `pai.status_cmd`
+- `pai.logs_cmd`
+- `pai.rollback_cmd`
+- `pai.cost_cmd`（可选）
+
+可用变量：
+- `{service_name}`
+- `{image}`
+- `{region}`
+- `{workspace_id}`
+- `{instance_type}`
+- `{replicas}`
+- `{endpoint}`
+- `{tail}`
+- `{group_by}`
+
+示例：
+
+```bash
+mdp lint -d ./blueprints/pai-example
+mdp deploy -d ./blueprints/pai-example --provider pai
+```

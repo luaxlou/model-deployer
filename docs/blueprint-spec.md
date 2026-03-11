@@ -47,14 +47,38 @@ deploy:
 verify:
   timeout_sec: 300
   interval_sec: 5
+
+pai:
+  region: cn-hangzhou
+  workspace_id: "your-workspace-id"
+  service_name: your-service
+  endpoint: https://your-pai-endpoint.example.com
+  image: registry.cn-hangzhou.aliyuncs.com/your-namespace/your-image:tag
+  # image_repo 与 image 二选一；使用 image_repo 时，工具会构建并 push
+  image_repo: registry.cn-hangzhou.aliyuncs.com/your-namespace/your-image
+  deploy_cmd: "aliyun pai CreateService --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name} --Image {image}"
+  status_cmd: "aliyun pai GetService --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name}"
+  logs_cmd: "aliyun pai ListServiceLogs --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name} --PageSize {tail}"
+  rollback_cmd: "aliyun pai UpdateService --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name} --Image {image}"
+  cost_cmd: "aliyun pai QueryServiceCost --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name}"
 ```
 
 ## 必填项
 
 - `name`
+- `provider`（`local` / `eas` / `pai`）
 - `model.weights[*].name`
 - `model.weights[*].url`（必须是 `http/https`）
 - `build` 对应文件存在（`Dockerfile`、`requirements.txt`、`service.py`）
+
+当 `provider: pai` 时，额外必填：
+- `pai.region`
+- `pai.workspace_id`
+- `pai.service_name`
+- `pai.image` 或 `pai.image_repo`
+- `pai.deploy_cmd`
+- `pai.status_cmd`
+- `pai.logs_cmd`
 
 ## 默认值
 

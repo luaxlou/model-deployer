@@ -13,3 +13,8 @@ def test_load_blueprint_defaults():
 def test_validate_blueprint_dir_success():
     errs = validate_blueprint_dir(Path("blueprints/example"))
     assert errs == []
+
+
+def test_validate_pai_blueprint_dir_success():
+    errs = validate_blueprint_dir(Path("blueprints/pai-example"))
+    assert errs == []

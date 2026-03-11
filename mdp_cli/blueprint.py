@@ -28,6 +28,23 @@ class VerifyConfig:
 
 
 @dataclass
+class PaiConfig:
+    region: str = ""
+    workspace_id: str = ""
+    service_name: str = ""
+    endpoint: str = ""
+    image: str = ""
+    image_repo: str = ""
+    instance_type: str = ""
+    replicas: int = 1
+    deploy_cmd: str = ""
+    rollback_cmd: str = ""
+    status_cmd: str = ""
+    logs_cmd: str = ""
+    cost_cmd: str = ""
+
+
+@dataclass
 class WeightAsset:
     name: str
     url: str
@@ -43,11 +60,12 @@ class ModelConfig:
 @dataclass
 class Blueprint:
     name: str
-    provider: str = "eas"
+    provider: str = "local"
     build: BuildConfig = field(default_factory=BuildConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
     deploy: DeployConfig = field(default_factory=DeployConfig)
     verify: VerifyConfig = field(default_factory=VerifyConfig)
+    pai: PaiConfig = field(default_factory=PaiConfig)
 
 
 def _as_weight(item: dict[str, Any]) -> WeightAsset:
@@ -64,6 +82,7 @@ def load_blueprint(blueprint_dir: Path) -> Blueprint:
     build = BuildConfig(**(raw.get("build") or {}))
     deploy = DeployConfig(**(raw.get("deploy") or {}))
     verify = VerifyConfig(**(raw.get("verify") or {}))
+    pai = PaiConfig(**(raw.get("pai") or {}))
 
     model_raw = raw.get("model") or {}
     weights = [_as_weight(w) for w in (model_raw.get("weights") or [])]
@@ -71,11 +90,12 @@ def load_blueprint(blueprint_dir: Path) -> Blueprint:
 
     return Blueprint(
         name=str(raw.get("name", "")),
-        provider=str(raw.get("provider", "eas")),
+        provider=str(raw.get("provider", "local")),
         build=build,
         model=model,
         deploy=deploy,
         verify=verify,
+        pai=pai,
     )
 
 
@@ -93,6 +113,9 @@ def validate_blueprint_dir(blueprint_dir: Path) -> list[str]:
 
     if not bp.name:
         errs.append("blueprint.name is required")
+
+    if bp.provider not in ("local", "eas", "pai"):
+        errs.append("provider must be one of: local, eas, pai")
 
     if not bp.model.weights:
         errs.append("model.weights must contain at least one item")
@@ -118,5 +141,21 @@ def validate_blueprint_dir(blueprint_dir: Path) -> list[str]:
         model_code = blueprint_dir / bp.model.code
         if not model_code.exists():
             errs.append(f"missing model code file: {model_code}")
+
+    if bp.provider == "pai":
+        if not bp.pai.region:
+            errs.append("pai.region is required when provider=pai")
+        if not bp.pai.workspace_id:
+            errs.append("pai.workspace_id is required when provider=pai")
+        if not bp.pai.service_name:
+            errs.append("pai.service_name is required when provider=pai")
+        if not (bp.pai.image or bp.pai.image_repo):
+            errs.append("pai.image or pai.image_repo is required when provider=pai")
+        if not bp.pai.deploy_cmd:
+            errs.append("pai.deploy_cmd is required when provider=pai")
+        if not bp.pai.status_cmd:
+            errs.append("pai.status_cmd is required when provider=pai")
+        if not bp.pai.logs_cmd:
+            errs.append("pai.logs_cmd is required when provider=pai")
 
     return errs
