@@ -1,13 +1,19 @@
-.PHONY: test run fmt vet
+.PHONY: install test lint plan build deploy
+
+install:
+	python3 -m pip install -e .
 
 test:
-	go test ./... -v
+	PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -q
 
-run:
-	go run ./cmd/controlplane
+lint:
+	python3 -m mdp_cli.main lint -d ./blueprints/example
 
-fmt:
-	gofmt -w $(shell find . -name '*.go')
+plan:
+	python3 -m mdp_cli.main plan -d ./blueprints/example
 
-vet:
-	go vet ./...
+build:
+	python3 -m mdp_cli.main build -d ./blueprints/example
+
+deploy:
+	python3 -m mdp_cli.main deploy -d ./blueprints/example
