@@ -1,6 +1,6 @@
-# Model Deploy Tool
+# Model Deployer
 
-Stateless CLI for blueprint-driven model deployment.
+Stateless, local-first CLI for model deployment.
 
 ## Quick Start
 

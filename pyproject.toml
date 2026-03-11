@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "model-deploy-tool"
+name = "model-deployer"
 version = "0.1.0"
-description = "Stateless CLI for blueprint-driven model deployment"
+description = "Stateless, local-first CLI for model deployment"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
