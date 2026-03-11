@@ -24,7 +24,7 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 
 ### 全局默认
 - `-d` 必填：`<blueprint_dir>`
-- `--provider` 默认：`eas`
+- `--provider` 默认：`local`
 - `--follow` 默认：`true`
 - `--on-fail` 默认：`rollback`
 - `--env` 默认：`prod`
@@ -43,14 +43,15 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 - `build.requirements`：`requirements.txt`
 - `build.service`：`service.py`
 - `deploy.health_path`：`/healthz`
-- `deploy.health_port`：`8080`
-- `deploy.start_command`：`python service.py`
+- `deploy.health_port`：`18080`（示例）
+- `deploy.start_command`：`uvicorn service:app --host 0.0.0.0 --port 18080`（示例）
 - `verify.timeout_sec`：`300`
 - `verify.interval_sec`：`5`
 
 ### 自动行为
 - 若存在 `<blueprint_dir>/smoke.sh`，自动执行 smoke；不存在则跳过。
 - `weights` 从 `blueprint.yaml` 的 `model.weights` 读取，不再依赖额外文件。
+- local provider 自动选择可用主机端口，避免端口冲突。
 
 ### 最简执行
 ```bash
@@ -60,7 +61,7 @@ mdp deploy -d ./blueprints/bert-prod
 等价于：
 
 ```bash
-mdp deploy -d ./blueprints/bert-prod --provider eas --follow --on-fail rollback --env prod
+mdp deploy -d ./blueprints/bert-prod --provider local --follow --on-fail rollback --env prod
 ```
 
 ### 失败返回码
@@ -90,26 +91,18 @@ make smoke
 
 ## 本地极小模型验证
 
-示例工程 `blueprints/example` 内置了一个极小线性模型（`TinyLinearModel`），用于本地部署链路测试。
+示例工程 `blueprints/example` 内置了一个极小线性模型（`TinyLinearModel`），用于本地 Docker 部署链路测试。
 
-1. 启动本地服务：
+1. 执行完整部署（会自动 `docker build` + `docker run`）：
 
 ```bash
-cd blueprints/example
-uvicorn service:app --host 127.0.0.1 --port 8080
+mdp deploy -d ./blueprints/example --provider local
 ```
 
-2. 在另一个终端执行部署命令（会走 `lint -> build -> rollout -> verify`）：
+2. 手动预测测试：
 
 ```bash
-cd /path/to/model-deploy-platform
-mdp deploy -d ./blueprints/example
-```
-
-3. 手动预测测试：
-
-```bash
-curl -X POST http://127.0.0.1:8080/predict \
+curl -X POST http://127.0.0.1:18080/predict \
   -H "Content-Type: application/json" \
   -d '{"x1": 1.5, "x2": 0.2}'
 ```
@@ -119,4 +112,4 @@ curl -X POST http://127.0.0.1:8080/predict \
 - 无状态命令执行（不依赖平台侧状态管理）
 - 默认流水线：`lint -> build -> rollout -> verify`
 - 失败自动回滚（默认 `--on-fail rollback`）
-- EAS provider 适配（首个实现）
+- local provider 适配（Docker 本地执行）

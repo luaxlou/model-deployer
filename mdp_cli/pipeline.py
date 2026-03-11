@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import subprocess
 import time
@@ -33,13 +34,19 @@ def rollback(blueprint_dir: Path, provider: str, to: str):
     return p.rollback(bp, to=to)
 
 
-def verify(blueprint_dir: Path, timeout_sec: int | None = None, interval_sec: int | None = None) -> tuple[bool, str]:
+def verify(
+    blueprint_dir: Path,
+    endpoint: str | None = None,
+    timeout_sec: int | None = None,
+    interval_sec: int | None = None,
+) -> tuple[bool, str]:
     bp = load_blueprint(blueprint_dir)
 
     timeout = timeout_sec or bp.verify.timeout_sec
     interval = interval_sec or bp.verify.interval_sec
 
-    health_url = f"http://127.0.0.1:{bp.deploy.health_port}{bp.deploy.health_path}"
+    base = endpoint or f"http://127.0.0.1:{bp.deploy.health_port}"
+    health_url = f"{base}{bp.deploy.health_path}"
 
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -55,7 +62,9 @@ def verify(blueprint_dir: Path, timeout_sec: int | None = None, interval_sec: in
 
     smoke = blueprint_dir / "smoke.sh"
     if smoke.exists():
-        proc = subprocess.run(["bash", str(smoke)], capture_output=True, text=True)
+        env = dict(os.environ)
+        env["MDP_ENDPOINT"] = base
+        proc = subprocess.run(["bash", str(smoke)], capture_output=True, text=True, env=env)
         if proc.returncode != 0:
             detail = (proc.stderr or proc.stdout).strip()
             return False, f"smoke failed: {detail}"
@@ -72,7 +81,7 @@ def deploy(blueprint_dir: Path, provider: str, env: str, on_fail: str) -> dict:
 
     rollout_res = rollout(blueprint_dir, provider, image=image, env=env)
 
-    ok, msg = verify(blueprint_dir)
+    ok, msg = verify(blueprint_dir, endpoint=rollout_res.endpoint)
     if ok:
         return {
             "ok": True,
@@ -80,6 +89,7 @@ def deploy(blueprint_dir: Path, provider: str, env: str, on_fail: str) -> dict:
             "image": image,
             "operation_id": rollout_res.operation_id,
             "provider_id": rollout_res.provider_id,
+            "endpoint": rollout_res.endpoint,
         }
 
     if on_fail == "rollback":

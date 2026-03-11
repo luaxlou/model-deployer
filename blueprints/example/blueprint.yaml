@@ -1,5 +1,5 @@
 name: example-model
-provider: eas
+provider: local
 
 build:
   dockerfile: Dockerfile
@@ -15,8 +15,8 @@ model:
 
 deploy:
   health_path: /healthz
-  health_port: 8080
-  start_command: python service.py
+  health_port: 18080
+  start_command: uvicorn service:app --host 0.0.0.0 --port 18080
 
 verify:
   timeout_sec: 60

@@ -48,7 +48,7 @@ def plan(
         "provider": bp.provider,
         "pipeline": ["lint", "build", "rollout", "verify"],
         "defaults": {
-            "provider": "eas",
+            "provider": "local",
             "follow": True,
             "on_fail": "rollback",
             "env": "prod",
@@ -64,7 +64,7 @@ def plan(
 @app.command()
 def build(
     d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
-    provider: str = typer.Option("eas", "--provider"),
+    provider: str = typer.Option("local", "--provider"),
 ):
     image = run_build(d, provider)
     _echo_json({"image": image})
@@ -74,13 +74,21 @@ def build(
 def rollout(
     d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
     image: str = typer.Option(..., "--image", help="Image ref to deploy"),
-    provider: str = typer.Option("eas", "--provider"),
+    provider: str = typer.Option("local", "--provider"),
     env: str = typer.Option("prod", "--env"),
     follow: bool = typer.Option(True, "--follow/--no-follow"),
 ):
     _ = follow
     res = run_rollout(d, provider=provider, image=image, env=env)
-    _echo_json({"operation_id": res.operation_id, "provider_id": res.provider_id, "status": res.status})
+    _echo_json(
+        {
+            "operation_id": res.operation_id,
+            "provider_id": res.provider_id,
+            "status": res.status,
+            "endpoint": res.endpoint,
+            "container_name": res.container_name,
+        }
+    )
 
 
 @app.command()
@@ -99,7 +107,7 @@ def verify(
 @app.command()
 def deploy(
     d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
-    provider: str = typer.Option("eas", "--provider"),
+    provider: str = typer.Option("local", "--provider"),
     env: str = typer.Option("prod", "--env"),
     follow: bool = typer.Option(True, "--follow/--no-follow"),
     on_fail: str = typer.Option("rollback", "--on-fail"),
@@ -120,19 +128,27 @@ def deploy(
 @app.command()
 def rollback(
     d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
-    provider: str = typer.Option("eas", "--provider"),
+    provider: str = typer.Option("local", "--provider"),
     to: str = typer.Option("previous", "--to"),
     follow: bool = typer.Option(True, "--follow/--no-follow"),
 ):
     _ = follow
     res = run_rollback(d, provider=provider, to=to)
-    _echo_json({"operation_id": res.operation_id, "provider_id": res.provider_id, "status": res.status})
+    _echo_json(
+        {
+            "operation_id": res.operation_id,
+            "provider_id": res.provider_id,
+            "status": res.status,
+            "endpoint": res.endpoint,
+            "container_name": res.container_name,
+        }
+    )
 
 
 @app.command()
 def status(
     d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
-    provider: str = typer.Option("eas", "--provider"),
+    provider: str = typer.Option("local", "--provider"),
 ):
     bp = load_blueprint(d)
     p = get_provider(provider)
@@ -142,7 +158,7 @@ def status(
 @app.command()
 def logs(
     d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
-    provider: str = typer.Option("eas", "--provider"),
+    provider: str = typer.Option("local", "--provider"),
     tail: int = typer.Option(200, "--tail"),
 ):
     bp = load_blueprint(d)
@@ -154,7 +170,7 @@ def logs(
 @app.command()
 def cost(
     d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
-    provider: str = typer.Option("eas", "--provider"),
+    provider: str = typer.Option("local", "--provider"),
     group_by: str = typer.Option("deployment", "--group-by"),
 ):
     bp = load_blueprint(d)

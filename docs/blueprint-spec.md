@@ -24,7 +24,7 @@
 
 ```yaml
 name: bert-prod
-provider: eas
+provider: local
 
 build:
   context: .
@@ -41,8 +41,8 @@ model:
 
 deploy:
   health_path: /healthz
-  health_port: 8080
-  start_command: python service.py
+  health_port: 18080
+  start_command: uvicorn service:app --host 0.0.0.0 --port 18080
 
 verify:
   timeout_sec: 300
@@ -58,13 +58,13 @@ verify:
 
 ## 默认值
 
-- `provider`: `eas`
+- `provider`: `local`
 - `build.context`: `.`
 - `build.dockerfile`: `Dockerfile`
 - `build.requirements`: `requirements.txt`
 - `build.service`: `service.py`
 - `deploy.health_path`: `/healthz`
-- `deploy.health_port`: `8080`
-- `deploy.start_command`: `python service.py`
+- `deploy.health_port`: `18080`（示例）
+- `deploy.start_command`: `uvicorn service:app --host 0.0.0.0 --port 18080`（示例）
 - `verify.timeout_sec`: `300`
 - `verify.interval_sec`: `5`
