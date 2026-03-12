@@ -1,5 +1,4 @@
 {
-  "service_name": "pai-example",
   "runtime": "custom",
   "resources": {
     "cpu": 2,

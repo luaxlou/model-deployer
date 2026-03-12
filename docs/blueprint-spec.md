@@ -79,6 +79,10 @@ pai:
 - `pai.status_cmd`
 - `pai.logs_cmd`
 
+`pai.service_config` 约束：
+- 仅放 Service Body 相关字段
+- 不建议重复声明 `pai` 区块已有字段（如 `service_name`、`region`、`workspace_id`）
+
 ## 默认值
 
 - `provider`: `local`
