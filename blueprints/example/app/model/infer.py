@@ -4,7 +4,7 @@ from typing import Any
 
 import numpy as np
 
-from model.loader import load_sklearn_model
+from app.model.loader import load_sklearn_model
 
 
 class TinySklearnModel:

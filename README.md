@@ -130,7 +130,7 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 ## 示例工程（真实可实验小模型）
 
 `blueprints/example` 内置真实训练的极小 sklearn 模型（`tiny_model.joblib`）。
-示例代码采用多文件目录结构（`service/`、`model/`），不再是单文件 `service.py`。
+示例代码统一收敛在 `app/` 目录（`app/service/`、`app/model/`），不再是单文件 `service.py`。
 
 常用命令：
 

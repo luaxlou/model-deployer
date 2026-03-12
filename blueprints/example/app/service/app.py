@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
-from model.infer import TinySklearnModel
-from service.schemas import PredictRequest
+from app.model.infer import TinySklearnModel
+from app.service.schemas import PredictRequest
 
 app = FastAPI()
 model = TinySklearnModel()
