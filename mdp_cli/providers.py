@@ -45,6 +45,14 @@ def _run_with_heartbeat(cmd: list[str], step: str, interval_sec: int = 5) -> str
     return (out or "").strip()
 
 
+def _run_stream(cmd: list[str], step: str) -> None:
+    print(f"[mdp] {step}: {' '.join(cmd)}", file=sys.stderr, flush=True)
+    proc = subprocess.Popen(cmd)
+    code = proc.wait()
+    if code != 0:
+        raise RuntimeError(f"command failed ({code}): {' '.join(cmd)}")
+
+
 def _safe_name(v: str) -> str:
     s = re.sub(r"[^a-zA-Z0-9_.-]", "-", v)
     return s.strip("-").lower() or "model"
@@ -81,7 +89,7 @@ class LocalProvider:
         context_dir = (blueprint_dir / bp.build.context).resolve()
         dockerfile = (blueprint_dir / bp.build.dockerfile).resolve()
 
-        _run_with_heartbeat([
+        _run_stream([
             "docker",
             "build",
             "-t",
@@ -180,9 +188,9 @@ class PaiProvider:
         image_tag = str(int(time.time()))
         push_tag = f"{push_repo}:{image_tag}"
 
-        _run_with_heartbeat(["docker", "build", "-t", local_tag, "-f", str(dockerfile), str(context_dir)], step="docker build")
+        _run_stream(["docker", "build", "-t", local_tag, "-f", str(dockerfile), str(context_dir)], step="docker build")
         _run(["docker", "tag", local_tag, push_tag])
-        _run_with_heartbeat(["docker", "push", push_tag], step="docker push")
+        _run_stream(["docker", "push", push_tag], step="docker push")
         return push_tag
 
     def rollout(self, blueprint_dir: Path, bp: Blueprint, image: str, env: str) -> RolloutResult:
