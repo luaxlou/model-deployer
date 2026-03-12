@@ -6,6 +6,7 @@ import json
 import re
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -25,6 +26,23 @@ def _run(cmd: list[str]) -> str:
         detail = (proc.stderr or proc.stdout).strip()
         raise RuntimeError(f"command failed: {' '.join(cmd)}; {detail}")
     return proc.stdout.strip()
+
+
+def _run_with_heartbeat(cmd: list[str], step: str, interval_sec: int = 5) -> str:
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    started = time.time()
+    while True:
+        try:
+            out, err = proc.communicate(timeout=interval_sec)
+            break
+        except subprocess.TimeoutExpired:
+            elapsed = int(time.time() - started)
+            print(f"[mdp] {step} running... {elapsed}s", file=sys.stderr, flush=True)
+
+    if proc.returncode != 0:
+        detail = (err or out or "").strip()
+        raise RuntimeError(f"command failed: {' '.join(cmd)}; {detail}")
+    return (out or "").strip()
 
 
 def _safe_name(v: str) -> str:
@@ -63,7 +81,7 @@ class LocalProvider:
         context_dir = (blueprint_dir / bp.build.context).resolve()
         dockerfile = (blueprint_dir / bp.build.dockerfile).resolve()
 
-        _run([
+        _run_with_heartbeat([
             "docker",
             "build",
             "-t",
@@ -71,7 +89,7 @@ class LocalProvider:
             "-f",
             str(dockerfile),
             str(context_dir),
-        ])
+        ], step="docker build")
         return tag
 
     def rollout(self, blueprint_dir: Path, bp: Blueprint, image: str, env: str) -> RolloutResult:
@@ -162,9 +180,9 @@ class PaiProvider:
         image_tag = str(int(time.time()))
         push_tag = f"{push_repo}:{image_tag}"
 
-        _run(["docker", "build", "-t", local_tag, "-f", str(dockerfile), str(context_dir)])
+        _run_with_heartbeat(["docker", "build", "-t", local_tag, "-f", str(dockerfile), str(context_dir)], step="docker build")
         _run(["docker", "tag", local_tag, push_tag])
-        _run(["docker", "push", push_tag])
+        _run_with_heartbeat(["docker", "push", push_tag], step="docker push")
         return push_tag
 
     def rollout(self, blueprint_dir: Path, bp: Blueprint, image: str, env: str) -> RolloutResult:
@@ -231,7 +249,7 @@ class PaiProvider:
                 "--Body",
                 f"file://{body_file}",
             ]
-            _run(cmd)
+            _run_with_heartbeat(cmd, step="pai update service")
         finally:
             Path(body_file).unlink(missing_ok=True)
         endpoint = pai.endpoint
