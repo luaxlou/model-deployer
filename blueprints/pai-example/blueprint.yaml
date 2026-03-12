@@ -24,8 +24,8 @@ deploy:
       workspace_id: "your-workspace-id"
       service_name: pai-example
       endpoint: https://your-pai-endpoint.example.com
-      push_image_repo: registry-vpc.cn-hangzhou.aliyuncs.com/your-public-namespace/pai-example
-      service_config: pai-service.json
+      image: registry-vpc.cn-hangzhou.aliyuncs.com/your-public-namespace/pai-example
+      eas_config: eas-service.json
 
 verify:
   timeout_sec: 120

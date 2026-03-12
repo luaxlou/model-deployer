@@ -42,7 +42,7 @@ class PaiDeployConfig:
     service_name: str = ""
     endpoint: str = ""
     image: str = ""
-    service_config: str = ""
+    eas_config: str = ""
     instance_type: str = ""
     replicas: int = 1
 
@@ -228,12 +228,12 @@ def validate_blueprint_dir(blueprint_dir: Path) -> list[str]:
             errs.append("deploy.pai.service_name is required when deploy.pai is configured")
         if not pai.image:
             errs.append("deploy.pai.image is required when deploy.pai is configured")
-        if not pai.service_config:
-            errs.append("deploy.pai.service_config is required when deploy.pai is configured")
+        if not pai.eas_config:
+            errs.append("deploy.pai.eas_config is required when deploy.pai is configured")
         else:
-            service_config = blueprint_dir / pai.service_config
-            if not service_config.exists():
-                errs.append(f"missing pai service config file: {service_config}")
+            eas_config = blueprint_dir / pai.eas_config
+            if not eas_config.exists():
+                errs.append(f"missing eas config file: {eas_config}")
 
     if bp.verify.script:
         verify_script = blueprint_dir / bp.verify.script

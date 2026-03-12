@@ -172,13 +172,13 @@ class PaiProvider:
         self._ensure_cli()
         params = self._params(bp, image=image)
         pai = bp.deploy.pai
-        service_cfg_path = (blueprint_dir / pai.service_config).resolve()
+        service_cfg_path = (blueprint_dir / pai.eas_config).resolve()
         try:
             cfg = json.loads(service_cfg_path.read_text(encoding="utf-8"))
         except FileNotFoundError as exc:
-            raise RuntimeError(f"pai.service_config file not found: {service_cfg_path}") from exc
+            raise RuntimeError(f"deploy.pai.eas_config file not found: {service_cfg_path}") from exc
         except json.JSONDecodeError as exc:
-            raise RuntimeError(f"pai.service_config is not valid JSON: {service_cfg_path}") from exc
+            raise RuntimeError(f"deploy.pai.eas_config is not valid JSON: {service_cfg_path}") from exc
 
         if isinstance(cfg, dict):
             target_image = ""
@@ -197,7 +197,7 @@ class PaiProvider:
 
             if not target_image:
                 raise RuntimeError(
-                    "pai-service.json must set private pull image in containers[0].image (preferred) or image"
+                    "eas config JSON must set private pull image in containers[0].image (preferred) or image"
                 )
 
             private_repo, _ = _split_image_ref(target_image)

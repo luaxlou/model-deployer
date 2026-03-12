@@ -20,13 +20,13 @@ def test_validate_pai_blueprint_dir_success():
     assert errs == []
 
 
-def test_validate_pai_blueprint_with_build_model_uses_service_config(tmp_path):
+def test_validate_pai_blueprint_with_build_model_uses_eas_config(tmp_path):
     bp_dir = tmp_path / "bp"
     bp_dir.mkdir()
     (bp_dir / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
     (bp_dir / "requirements.txt").write_text("fastapi\n", encoding="utf-8")
     (bp_dir / "service.py").write_text("print('ok')\n", encoding="utf-8")
-    (bp_dir / "pai-service.json").write_text("{}", encoding="utf-8")
+    (bp_dir / "eas-service.json").write_text("{}", encoding="utf-8")
     (bp_dir / "blueprint.yaml").write_text(
         """
 name: pai-no-deploy-cmd
@@ -43,7 +43,7 @@ deploy:
       workspace_id: "ws-1"
       service_name: demo
       image: registry.cn-hangzhou.aliyuncs.com/ns/demo:latest
-      service_config: pai-service.json
+      eas_config: eas-service.json
 """.strip()
         + "\n",
         encoding="utf-8",
@@ -86,7 +86,7 @@ def test_validate_blueprint_rejects_top_level_pai(tmp_path):
     (bp_dir / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
     (bp_dir / "requirements.txt").write_text("fastapi\n", encoding="utf-8")
     (bp_dir / "service.py").write_text("print('ok')\n", encoding="utf-8")
-    (bp_dir / "pai-service.json").write_text("{}", encoding="utf-8")
+    (bp_dir / "eas-service.json").write_text("{}", encoding="utf-8")
     (bp_dir / "blueprint.yaml").write_text(
         """
 name: top-pai
@@ -101,7 +101,7 @@ pai:
   workspace_id: "ws-1"
   service_name: demo
   image: registry.cn-hangzhou.aliyuncs.com/ns/demo:latest
-  service_config: pai-service.json
+  eas_config: eas-service.json
 """.strip()
         + "\n",
         encoding="utf-8",

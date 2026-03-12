@@ -18,26 +18,7 @@
       "image": "registry-internal-vpc.cn-hangzhou.aliyuncs.com/your-private-namespace/pai-example:latest",
       "port": 8000,
       "env": [
-        {
-          "name": "PORT",
-          "value": "8000"
-        },
-        {
-          "name": "PYTHONPATH",
-          "value": "/app"
-        },
-        {
-          "name": "MODEL_URI",
-          "value": "oss://your-bucket/models/your-model.tar.gz"
-        },
-        {
-          "name": "OSS_ENDPOINT",
-          "value": "oss-cn-hangzhou-internal.aliyuncs.com"
-        },
-        {
-          "name": "APP_START_CMD",
-          "value": "uvicorn service:app --host 0.0.0.0 --port ${PORT:-8000}"
-        }
+       
       ]
     }
   ],

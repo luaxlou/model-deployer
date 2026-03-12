@@ -134,17 +134,17 @@ curl -X POST <endpoint>/predict \
 
 ## PAI 使用说明（JSON 配置更新）
 
-`provider: pai` 时，`mdp` 会读取 `deploy.providers[name=pai].service_config` 指向的 JSON 文件，并调用：
+`provider: pai` 时，`mdp` 会读取 `deploy.providers[name=pai].eas_config` 指向的 JSON 文件，并调用：
 
 - `aliyun pai UpdateService --Body file://<generated_json>`
 
 其中，工具会在部署时自动同步私网镜像字段的 tag（保留仓库地址不变）：
-- 优先 `pai-service.json` 的 `containers[0].image`
-- 兼容旧格式 `pai-service.json.image`
+- 优先 `eas-service.json` 的 `containers[0].image`
+- 兼容旧格式 `eas-service.json.image`
 
 PAI 镜像仓库支持分离配置：
 - `deploy.providers[name=pai].image`：构建后推送仓库（公网）
-- `pai-service.json` 的私网镜像字段：`containers[0].image`（兼容 `image`）
+- `eas-service.json` 的私网镜像字段：`containers[0].image`（兼容 `image`）
 
 其余运维命令使用工具内置约定：
 - `status` -> `aliyun pai GetService`
