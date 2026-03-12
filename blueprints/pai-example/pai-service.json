@@ -1,4 +1,5 @@
 {
+  "image": "registry-internal-vpc.cn-hangzhou.aliyuncs.com/your-private-namespace/pai-example:latest",
   "service_name": "pai-example",
   "instance_type": "ecs.g6.large",
   "replicas": 1,

@@ -138,12 +138,11 @@ curl -X POST <endpoint>/predict \
 
 - `aliyun pai UpdateService --Body file://<generated_json>`
 
-其中，工具会在部署时自动覆盖 JSON 中的以下字段：
-- `image`
+其中，工具会在部署时自动同步 `pai-service.json.image` 的 tag（保留私网仓库地址不变）。
 
 PAI 镜像仓库支持分离配置：
-- `image_repo`：部署运行时拉取仓库（可用私网地址）
-- `push_image_repo`：构建后推送仓库（可用公网地址）；不配置时回退到 `image_repo`
+- `push_image_repo`：构建后推送仓库（公网）
+- `pai-service.json.image`：部署运行时拉取镜像（私网）
 
 其余运维命令使用工具内置约定：
 - `status` -> `aliyun pai GetService`

@@ -139,25 +139,23 @@ class PaiProvider:
 
     def build_image(self, blueprint_dir: Path, bp: Blueprint) -> str:
         # For PAI, either use fixed image or build+push to configured public repo.
-        # If image_repo is configured for private pull, return that tag for deployment.
         pai = bp.deploy.pai
         if pai.image:
             return pai.image
-        push_repo = pai.push_image_repo or pai.image_repo
+        push_repo = pai.push_image_repo
         if not push_repo:
-            raise RuntimeError("pai.image or deploy.pai.push_image_repo/deploy.pai.image_repo is required")
+            raise RuntimeError("pai.image or deploy.pai.push_image_repo is required")
 
         local_tag = f"mdp-{_safe_name(bp.name)}:{int(time.time())}"
         context_dir = (blueprint_dir / bp.build.context).resolve()
         dockerfile = (blueprint_dir / bp.build.dockerfile).resolve()
         image_tag = str(int(time.time()))
         push_tag = f"{push_repo}:{image_tag}"
-        deploy_tag = f"{pai.image_repo}:{image_tag}" if pai.image_repo else push_tag
 
         _run(["docker", "build", "-t", local_tag, "-f", str(dockerfile), str(context_dir)])
         _run(["docker", "tag", local_tag, push_tag])
         _run(["docker", "push", push_tag])
-        return deploy_tag
+        return push_tag
 
     def rollout(self, blueprint_dir: Path, bp: Blueprint, image: str, env: str) -> RolloutResult:
         _ = env
@@ -173,7 +171,13 @@ class PaiProvider:
             raise RuntimeError(f"pai.service_config is not valid JSON: {service_cfg_path}") from exc
 
         if isinstance(cfg, dict):
-            cfg["image"] = image
+            cfg_image = str(cfg.get("image", "")).strip()
+            if not cfg_image:
+                raise RuntimeError("pai-service.json must set private pull image in field: image")
+            if ":" in image:
+                image_tag = image.rsplit(":", 1)[1]
+                private_repo = cfg_image.rsplit(":", 1)[0] if ":" in cfg_image else cfg_image
+                cfg["image"] = f"{private_repo}:{image_tag}"
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as tmp:
             json.dump(cfg, tmp, ensure_ascii=False)

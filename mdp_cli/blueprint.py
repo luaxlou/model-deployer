@@ -43,7 +43,6 @@ class PaiDeployConfig:
     endpoint: str = ""
     image: str = ""
     push_image_repo: str = ""
-    image_repo: str = ""
     service_config: str = ""
     instance_type: str = ""
     replicas: int = 1
@@ -228,8 +227,8 @@ def validate_blueprint_dir(blueprint_dir: Path) -> list[str]:
             errs.append("deploy.pai.workspace_id is required when deploy.pai is configured")
         if not pai.service_name:
             errs.append("deploy.pai.service_name is required when deploy.pai is configured")
-        if not (pai.image or pai.image_repo):
-            errs.append("deploy.pai.image or deploy.pai.image_repo is required when deploy.pai is configured")
+        if not (pai.image or pai.push_image_repo):
+            errs.append("deploy.pai.image or deploy.pai.push_image_repo is required when deploy.pai is configured")
         if not pai.service_config:
             errs.append("deploy.pai.service_config is required when deploy.pai is configured")
         else:
