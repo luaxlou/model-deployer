@@ -31,13 +31,12 @@ build:
   dockerfile: Dockerfile
   requirements: requirements.txt
   service: service.py
-
-model:
-  code: model/model.py
-  weights:
-    - name: model-weights
-      url: https://example.com/model.bin
-      sha256: "optional"
+  model:
+    code: model/model.py
+    weights:
+      - name: model-weights
+        url: https://example.com/model.bin
+        sha256: "optional"
 
 deploy:
   health_path: /healthz
@@ -66,8 +65,8 @@ pai:
 
 - `name`
 - `provider`（`local` / `eas` / `pai`）
-- `model.weights[*].name`
-- `model.weights[*].url`（必须是 `http/https`）
+- `build.model.weights[*].name`
+- `build.model.weights[*].url`（必须是 `http/https`）
 - `build` 对应文件存在（`Dockerfile`、`requirements.txt`、`service.py`）
 
 当 `provider: pai` 时，额外必填：

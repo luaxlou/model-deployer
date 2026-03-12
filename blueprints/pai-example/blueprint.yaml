@@ -6,12 +6,11 @@ build:
   dockerfile: Dockerfile
   requirements: requirements.txt
   service: service.py
-
-model:
-  code: model/model.py
-  weights:
-    - name: model-weights
-      url: https://huggingface.co/hf-internal-testing/tiny-random-BertModel/resolve/main/config.json
+  model:
+    code: model/model.py
+    weights:
+      - name: model-weights
+        url: https://huggingface.co/hf-internal-testing/tiny-random-BertModel/resolve/main/config.json
 
 deploy:
   health_path: /healthz

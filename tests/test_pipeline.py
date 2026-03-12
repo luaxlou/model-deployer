@@ -6,10 +6,6 @@ from mdp_cli import pipeline
 def test_deploy_build_only_skips_rollout_and_verify(monkeypatch):
     calls = []
 
-    def fake_lint(_dir: Path):
-        calls.append("lint")
-        return True, []
-
     def fake_build(_dir: Path):
         calls.append("build")
         return "example:tag"
@@ -22,7 +18,6 @@ def test_deploy_build_only_skips_rollout_and_verify(monkeypatch):
         calls.append("verify")
         raise AssertionError("verify should not be called in build-only mode")
 
-    monkeypatch.setattr(pipeline, "lint", fake_lint)
     monkeypatch.setattr(pipeline, "build", fake_build)
     monkeypatch.setattr(pipeline, "rollout", fake_rollout)
     monkeypatch.setattr(pipeline, "verify", fake_verify)
@@ -39,4 +34,4 @@ def test_deploy_build_only_skips_rollout_and_verify(monkeypatch):
         "image": "example:tag",
         "mode": "build-only",
     }
-    assert calls == ["lint", "build"]
+    assert calls == ["build"]

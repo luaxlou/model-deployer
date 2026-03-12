@@ -50,7 +50,7 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 
 - `mdp build -d <dir>`：构建镜像并输出 image
 - `mdp rollout -d <dir> --image <image>`：启动部署并输出 `endpoint/container_name/status`
-- `mdp deploy -d <dir> [--build-only]`：默认执行 `lint -> build -> rollout -> verify`，加 `--build-only` 时仅执行 `lint -> build`
+- `mdp deploy -d <dir> [--build-only]`：默认执行 `build -> deploy -> verify`，加 `--build-only` 时仅执行 `build`
 
 ### 3) 验证
 
@@ -70,14 +70,13 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 - `--env`: `prod`
 
 `mdp deploy` 默认流水线（不带 `--build-only`）：
-1. `lint`
-2. `build`
-3. `rollout`
-4. `verify`
+1. `build`
+2. `deploy`
+3. `verify`
 
 自动行为：
 - 若存在 `<blueprint_dir>/smoke.sh`，自动执行
-- `weights` 从 `blueprint.yaml` 的 `model.weights` 读取
+- `weights` 从 `blueprint.yaml` 的 `build.model.weights` 读取
 - local provider 自动选择可用主机端口，避免端口冲突
 
 ## 输出约定（无状态）

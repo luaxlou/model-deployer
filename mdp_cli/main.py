@@ -45,7 +45,7 @@ def plan(
     data = {
         "name": bp.name,
         "provider": bp.provider,
-        "pipeline": ["lint", "build", "rollout", "verify"],
+        "pipeline": ["build", "deploy", "verify"],
         "defaults": {
             "follow": True,
             "env": "prod",
@@ -110,10 +110,10 @@ def deploy(
 
     if not result.get("ok", False):
         stage = result.get("stage")
-        if stage == "lint":
-            raise typer.Exit(code=codes.VALIDATION_ERROR)
         if stage == "verify":
             raise typer.Exit(code=codes.VERIFY_ERROR)
+        if stage == "build":
+            raise typer.Exit(code=codes.BUILD_ERROR)
         raise typer.Exit(code=codes.DEPLOY_ERROR)
 
 

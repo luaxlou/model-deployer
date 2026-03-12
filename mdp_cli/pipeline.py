@@ -67,21 +67,23 @@ def verify(
 
 
 def deploy(blueprint_dir: Path, env: str, build_only: bool = False) -> dict:
-    ok, errs = lint(blueprint_dir)
-    if not ok:
-        return {"ok": False, "stage": "lint", "errors": errs}
-
-    image = build(blueprint_dir)
+    try:
+        image = build(blueprint_dir)
+    except Exception as exc:
+        return {"ok": False, "stage": "build", "message": str(exc)}
     if build_only:
         return {"ok": True, "stage": "build", "image": image, "mode": "build-only"}
 
-    rollout_res = rollout(blueprint_dir, image=image, env=env)
+    try:
+        rollout_res = rollout(blueprint_dir, image=image, env=env)
+    except Exception as exc:
+        return {"ok": False, "stage": "deploy", "message": str(exc)}
 
     ok, msg = verify(blueprint_dir, endpoint=rollout_res.endpoint)
     if ok:
         return {
             "ok": True,
-            "stage": "done",
+            "stage": "verify",
             "image": image,
             "status": rollout_res.status,
             "endpoint": rollout_res.endpoint,

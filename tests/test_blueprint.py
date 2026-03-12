@@ -20,7 +20,7 @@ def test_validate_pai_blueprint_dir_success():
     assert errs == []
 
 
-def test_validate_pai_blueprint_without_deploy_cmd_uses_service_config(tmp_path):
+def test_validate_pai_blueprint_with_build_model_uses_service_config(tmp_path):
     bp_dir = tmp_path / "bp"
     bp_dir.mkdir()
     (bp_dir / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
@@ -31,10 +31,11 @@ def test_validate_pai_blueprint_without_deploy_cmd_uses_service_config(tmp_path)
         """
 name: pai-no-deploy-cmd
 provider: pai
-model:
-  weights:
-    - name: model-weights
-      url: https://example.com/model.bin
+build:
+  model:
+    weights:
+      - name: model-weights
+        url: https://example.com/model.bin
 pai:
   region: cn-hangzhou
   workspace_id: "ws-1"

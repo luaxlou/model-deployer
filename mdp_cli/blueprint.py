@@ -7,11 +7,25 @@ import yaml
 
 
 @dataclass
+class WeightAsset:
+    name: str
+    url: str
+    sha256: str | None = None
+
+
+@dataclass
+class ModelConfig:
+    code: str | None = None
+    weights: list[WeightAsset] = field(default_factory=list)
+
+
+@dataclass
 class BuildConfig:
     context: str = "."
     dockerfile: str = "Dockerfile"
     requirements: str = "requirements.txt"
     service: str = "service.py"
+    model: ModelConfig = field(default_factory=ModelConfig)
 
 
 @dataclass
@@ -44,24 +58,10 @@ class PaiConfig:
 
 
 @dataclass
-class WeightAsset:
-    name: str
-    url: str
-    sha256: str | None = None
-
-
-@dataclass
-class ModelConfig:
-    code: str | None = None
-    weights: list[WeightAsset] = field(default_factory=list)
-
-
-@dataclass
 class Blueprint:
     name: str
     provider: str = "local"
     build: BuildConfig = field(default_factory=BuildConfig)
-    model: ModelConfig = field(default_factory=ModelConfig)
     deploy: DeployConfig = field(default_factory=DeployConfig)
     verify: VerifyConfig = field(default_factory=VerifyConfig)
     pai: PaiConfig = field(default_factory=PaiConfig)
@@ -78,20 +78,19 @@ def _as_weight(item: dict[str, Any]) -> WeightAsset:
 def load_blueprint(blueprint_dir: Path) -> Blueprint:
     raw = yaml.safe_load((blueprint_dir / "blueprint.yaml").read_text(encoding="utf-8")) or {}
 
-    build = BuildConfig(**(raw.get("build") or {}))
+    build_raw = raw.get("build") or {}
+    model_raw = (build_raw.get("model") or raw.get("model") or {})
+    weights = [_as_weight(w) for w in (model_raw.get("weights") or [])]
+    model = ModelConfig(code=model_raw.get("code"), weights=weights)
+    build = BuildConfig(**{k: v for k, v in build_raw.items() if k != "model"}, model=model)
     deploy = DeployConfig(**(raw.get("deploy") or {}))
     verify = VerifyConfig(**(raw.get("verify") or {}))
     pai = PaiConfig(**(raw.get("pai") or {}))
-
-    model_raw = raw.get("model") or {}
-    weights = [_as_weight(w) for w in (model_raw.get("weights") or [])]
-    model = ModelConfig(code=model_raw.get("code"), weights=weights)
 
     return Blueprint(
         name=str(raw.get("name", "")),
         provider=str(raw.get("provider", "local")),
         build=build,
-        model=model,
         deploy=deploy,
         verify=verify,
         pai=pai,
@@ -116,14 +115,14 @@ def validate_blueprint_dir(blueprint_dir: Path) -> list[str]:
     if bp.provider not in ("local", "eas", "pai"):
         errs.append("provider must be one of: local, eas, pai")
 
-    if not bp.model.weights:
-        errs.append("model.weights must contain at least one item")
+    if not bp.build.model.weights:
+        errs.append("build.model.weights must contain at least one item")
     else:
-        for idx, w in enumerate(bp.model.weights):
+        for idx, w in enumerate(bp.build.model.weights):
             if not w.name:
-                errs.append(f"model.weights[{idx}].name is required")
+                errs.append(f"build.model.weights[{idx}].name is required")
             if not (w.url.startswith("http://") or w.url.startswith("https://")):
-                errs.append(f"model.weights[{idx}].url must be http/https")
+                errs.append(f"build.model.weights[{idx}].url must be http/https")
 
     dockerfile = blueprint_dir / bp.build.dockerfile
     requirements = blueprint_dir / bp.build.requirements
@@ -136,8 +135,8 @@ def validate_blueprint_dir(blueprint_dir: Path) -> list[str]:
     if not service.exists():
         errs.append(f"missing service file: {service}")
 
-    if bp.model.code:
-        model_code = blueprint_dir / bp.model.code
+    if bp.build.model.code:
+        model_code = blueprint_dir / bp.build.model.code
         if not model_code.exists():
             errs.append(f"missing model code file: {model_code}")
 
