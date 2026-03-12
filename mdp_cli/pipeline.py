@@ -4,8 +4,11 @@ import hashlib
 import os
 from pathlib import Path
 import subprocess
+import sys
+import tarfile
 import time
 from urllib.parse import urlparse
+import zipfile
 
 import requests
 
@@ -35,22 +38,85 @@ def _sha256_of_file(path: Path) -> str:
 
 def _download_file(url: str, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
-    with requests.get(url, stream=True, timeout=30) as resp:
+    part = target.with_name(f"{target.name}.part")
+    resume_from = part.stat().st_size if part.exists() else 0
+    headers = {"Range": f"bytes={resume_from}-"} if resume_from > 0 else {}
+
+    with requests.get(url, stream=True, timeout=30, headers=headers) as resp:
         resp.raise_for_status()
-        with target.open("wb") as f:
+
+        status_code = int(getattr(resp, "status_code", 200))
+        accept_resume = resume_from > 0 and status_code == 206
+        if resume_from > 0 and not accept_resume:
+            # Server ignored/doesn't support Range; restart from scratch.
+            resume_from = 0
+
+        mode = "ab" if accept_resume else "wb"
+        total_bytes = None
+        resp_headers = getattr(resp, "headers", {}) or {}
+        raw_total = str(resp_headers.get("Content-Length", "")).strip()
+        if raw_total and raw_total.isdigit():
+            content_bytes = int(raw_total)
+            total_bytes = resume_from + content_bytes if accept_resume else content_bytes
+
+        start_msg = f"[mdp] downloading weights: {url}"
+        if accept_resume and resume_from > 0:
+            start_msg += f" (resume from {resume_from} bytes)"
+        print(start_msg, file=sys.stderr, flush=True)
+
+        downloaded = resume_from
+        last_reported_percent = -1
+        with part.open(mode) as f:
             for chunk in resp.iter_content(chunk_size=1024 * 1024):
-                if chunk:
-                    f.write(chunk)
+                if not chunk:
+                    continue
+                f.write(chunk)
+                downloaded += len(chunk)
+
+                if total_bytes and total_bytes > 0:
+                    percent = int(downloaded * 100 / total_bytes)
+                    if percent >= last_reported_percent + 10 or percent == 100:
+                        print(
+                            f"[mdp] downloading weights: {percent}% ({downloaded}/{total_bytes} bytes)",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                        last_reported_percent = percent
+
+        if not total_bytes:
+            print(f"[mdp] downloading weights: {downloaded} bytes", file=sys.stderr, flush=True)
+        part.replace(target)
+
+
+def _is_archive(path: Path) -> bool:
+    name = path.name.lower()
+    return name.endswith(".zip") or name.endswith(".tar") or name.endswith(".tar.gz") or name.endswith(".tgz")
+
+
+def _extract_archive(archive_path: Path, output_dir: Path) -> None:
+    if zipfile.is_zipfile(archive_path):
+        with zipfile.ZipFile(archive_path) as zf:
+            zf.extractall(output_dir)
+        return
+
+    if tarfile.is_tarfile(archive_path):
+        with tarfile.open(archive_path) as tf:
+            tf.extractall(output_dir)
+        return
+
+    raise ValueError(f"unsupported archive format: {archive_path}")
 
 
 def _prefetch_weights(blueprint_dir: Path) -> None:
     bp = load_blueprint(blueprint_dir)
+    out_dir = blueprint_dir / ".mdp" / "weights"
+    out_dir.mkdir(parents=True, exist_ok=True)
     for url in bp.build.weights:
         target = _weight_target_path(blueprint_dir, url)
-        if target.exists():
-            continue
-
-        _download_file(url, target)
+        if not target.exists():
+            _download_file(url, target)
+        if _is_archive(target):
+            _extract_archive(target, out_dir)
 
 
 def build(blueprint_dir: Path, provider: str) -> str:
