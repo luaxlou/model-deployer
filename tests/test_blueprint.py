@@ -109,3 +109,36 @@ pai:
 
     errs = validate_blueprint_dir(bp_dir)
     assert "top-level 'pai' is not allowed; use deploy.providers with name='pai'" in errs
+
+
+def test_validate_blueprint_rejects_removed_fields(tmp_path):
+    bp_dir = tmp_path / "bp-removed"
+    bp_dir.mkdir()
+    (bp_dir / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
+    (bp_dir / "requirements.txt").write_text("fastapi\n", encoding="utf-8")
+    (bp_dir / "service.py").write_text("print('ok')\n", encoding="utf-8")
+    (bp_dir / "blueprint.yaml").write_text(
+        """
+name: removed-fields
+build:
+  requirements: requirements.txt
+  service: service.py
+  model:
+    code: model/infer.py
+    weights:
+      - name: model-weights
+        url: https://example.com/model.bin
+deploy:
+  providers:
+    - name: local
+      start_command: python service.py
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    errs = validate_blueprint_dir(bp_dir)
+    assert "build.requirements is removed; define dependencies in Dockerfile" in errs
+    assert "build.service is removed; define runtime entrypoint in Dockerfile" in errs
+    assert "build.model.code is removed; package model code through Dockerfile build context" in errs
+    assert "deploy.providers[].start_command is removed; use image ENTRYPOINT/CMD" in errs

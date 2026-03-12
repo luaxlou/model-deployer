@@ -70,6 +70,19 @@ def _split_image_ref(image: str) -> tuple[str, str]:
     return image, ""
 
 
+def _release_tag() -> str:
+    proc = subprocess.run(
+        ["git", "rev-parse", "--short=8", "HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode == 0:
+        tag = (proc.stdout or "").strip()
+        if tag:
+            return tag
+    return str(int(time.time()))
+
+
 def _find_host_port(preferred: int) -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -85,7 +98,7 @@ class LocalProvider:
     name = "local"
 
     def build_image(self, blueprint_dir: Path, bp: Blueprint) -> str:
-        tag = f"mdp-{_safe_name(bp.name)}:{int(time.time())}"
+        tag = f"mdp-{_safe_name(bp.name)}:{_release_tag()}"
         context_dir = (blueprint_dir / bp.build.context).resolve()
         dockerfile = (blueprint_dir / bp.build.dockerfile).resolve()
 
@@ -115,9 +128,6 @@ class LocalProvider:
             "-p", f"{host_port}:{cfg.health_port}",
             image,
         ]
-
-        if cfg.start_command:
-            run_cmd.extend(["sh", "-lc", cfg.start_command])
 
         _run(run_cmd)
         endpoint = f"http://127.0.0.1:{host_port}"
@@ -182,11 +192,12 @@ class PaiProvider:
         if not push_repo:
             raise RuntimeError("deploy.pai.image is required")
 
-        local_tag = f"mdp-{_safe_name(bp.name)}:{int(time.time())}"
+        release_tag = _release_tag()
+        local_tag = f"mdp-{_safe_name(bp.name)}:{release_tag}"
         context_dir = (blueprint_dir / bp.build.context).resolve()
         dockerfile = (blueprint_dir / bp.build.dockerfile).resolve()
-        image_tag = str(int(time.time()))
-        push_tag = f"{push_repo}:{image_tag}"
+        push_repo_base, _ = _split_image_ref(push_repo)
+        push_tag = f"{push_repo_base}:{release_tag}"
 
         _run_stream(["docker", "build", "-t", local_tag, "-f", str(dockerfile), str(context_dir)], step="docker build")
         _run(["docker", "tag", local_tag, push_tag])

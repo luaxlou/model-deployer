@@ -8,15 +8,12 @@
 <blueprint_dir>/
   blueprint.yaml
   Dockerfile
-  requirements.txt
-  service.py
 ```
 
 ## 可选内容
 
 ```text
 <blueprint_dir>/
-  model/model.py
   smoke.sh
 ```
 
@@ -29,10 +26,7 @@ provider: local
 build:
   context: .
   dockerfile: Dockerfile
-  requirements: requirements.txt
-  service: service.py
   model:
-    code: model/model.py
     weights:
       - name: model-weights
         url: https://example.com/model.bin
@@ -44,7 +38,6 @@ deploy:
     - name: local
       health_path: /healthz
       health_port: 18080
-      start_command: uvicorn service:app --host 0.0.0.0 --port 18080
     - name: pai
       region: cn-hangzhou
       workspace_id: "your-workspace-id"
@@ -67,14 +60,14 @@ verify:
 - `name`
 - `build.model.weights[*].name`
 - `build.model.weights[*].url`（必须是 `http/https`）
-- `build` 对应文件存在（`Dockerfile`、`requirements.txt`、`service.py`）
+- `build.dockerfile` 对应文件存在（`Dockerfile`）
 - `deploy.providers` 至少配置一种部署方式（`name` 为 `local` / `eas` / `pai`）
 
 当配置 `deploy.providers[].name = pai` 时，额外必填：
 - `region`
 - `workspace_id`
 - `service_name`
-- `image`（构建后推送公网仓库）
+- `image`（构建后推送公网仓库，建议填写仓库前缀不带 tag）
 - `eas-service.json` 中必须包含私网拉取镜像字段（推荐 `containers[0].image`，兼容 `image`）
 - `eas_config`（JSON 文件路径，基于 blueprint 目录）
 
@@ -83,13 +76,21 @@ verify:
 - `provider`: `local`
 - `build.context`: `.`
 - `build.dockerfile`: `Dockerfile`
-- `build.requirements`: `requirements.txt`
-- `build.service`: `service.py`
 - `local` provider 默认：
   - `health_path`: `/healthz`
   - `health_port`: `8080`
-  - `start_command`: `python service.py`
 - `deploy.default`: `""`（为空时按命令参数/交互选择 provider）
 - `verify.timeout_sec`: `300`
 - `verify.interval_sec`: `5`
 - `verify.script`: `""`（空字符串表示不执行脚本）
+
+## 约束
+
+- 运行入口（启动命令）必须在镜像的 `ENTRYPOINT`/`CMD` 中定义。
+- build 阶段产出的镜像 tag 规则为：`<git-sha-8>`（不可用时回退 timestamp）。
+- deploy(pai) 会将 build 产出的 tag 自动同步到 `eas_config` 的镜像字段。
+- 以下字段已移除，出现即 lint 失败：
+  - `build.requirements`
+  - `build.service`
+  - `build.model.code`
+  - `deploy.providers[].start_command`

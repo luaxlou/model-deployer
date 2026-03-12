@@ -15,7 +15,6 @@ class WeightAsset:
 
 @dataclass
 class ModelConfig:
-    code: str | None = None
     weights: list[WeightAsset] = field(default_factory=list)
 
 
@@ -23,8 +22,6 @@ class ModelConfig:
 class BuildConfig:
     context: str = "."
     dockerfile: str = "Dockerfile"
-    requirements: str = "requirements.txt"
-    service: str = "service.py"
     model: ModelConfig = field(default_factory=ModelConfig)
 
 
@@ -32,7 +29,6 @@ class BuildConfig:
 class LocalDeployConfig:
     health_path: str = "/healthz"
     health_port: int = 8080
-    start_command: str = "python service.py"
 
 
 @dataclass
@@ -86,8 +82,12 @@ def load_blueprint(blueprint_dir: Path) -> Blueprint:
     build_raw = raw.get("build") or {}
     model_raw = (build_raw.get("model") or raw.get("model") or {})
     weights = [_as_weight(w) for w in (model_raw.get("weights") or [])]
-    model = ModelConfig(code=model_raw.get("code"), weights=weights)
-    build = BuildConfig(**{k: v for k, v in build_raw.items() if k != "model"}, model=model)
+    model = ModelConfig(weights=weights)
+    build_allowed_keys = {"context", "dockerfile"}
+    build = BuildConfig(
+        **{k: v for k, v in build_raw.items() if k in build_allowed_keys},
+        model=model,
+    )
     deploy_raw = raw.get("deploy") or {}
     local_raw = None
     eas_raw = None
@@ -110,7 +110,6 @@ def load_blueprint(blueprint_dir: Path) -> Blueprint:
         legacy_local_raw = {
             "health_path": deploy_raw.get("health_path"),
             "health_port": deploy_raw.get("health_port"),
-            "start_command": deploy_raw.get("start_command"),
         }
         legacy_local_raw = {k: v for k, v in legacy_local_raw.items() if v is not None}
         local_raw = deploy_raw.get("local")
@@ -134,10 +133,12 @@ def load_blueprint(blueprint_dir: Path) -> Blueprint:
     if not configured and legacy_provider in ("local", "eas", "pai"):
         configured.append(legacy_provider)
 
+    local_allowed_keys = {"health_path", "health_port"}
+
     deploy = DeployConfig(
         default=default_provider,
-        local=LocalDeployConfig(**(local_raw or {})),
-        eas=LocalDeployConfig(**(eas_raw or {})),
+        local=LocalDeployConfig(**{k: v for k, v in (local_raw or {}).items() if k in local_allowed_keys}),
+        eas=LocalDeployConfig(**{k: v for k, v in (eas_raw or {}).items() if k in local_allowed_keys}),
         pai=PaiDeployConfig(**(pai_raw or {})),
         configured_providers=configured,
     )
@@ -163,8 +164,16 @@ def validate_blueprint_dir(blueprint_dir: Path) -> list[str]:
         return [f"missing file: {blueprint_path}"]
 
     raw = yaml.safe_load(blueprint_path.read_text(encoding="utf-8")) or {}
+    build_raw = raw.get("build") or {}
+    model_raw = (build_raw.get("model") or raw.get("model") or {})
     if isinstance(raw, dict) and "pai" in raw:
         errs.append("top-level 'pai' is not allowed; use deploy.providers with name='pai'")
+    if "requirements" in build_raw:
+        errs.append("build.requirements is removed; define dependencies in Dockerfile")
+    if "service" in build_raw:
+        errs.append("build.service is removed; define runtime entrypoint in Dockerfile")
+    if isinstance(model_raw, dict) and "code" in model_raw:
+        errs.append("build.model.code is removed; package model code through Dockerfile build context")
     deploy_raw = raw.get("deploy") or {}
     providers_raw = deploy_raw.get("providers")
     if providers_raw is not None:
@@ -178,6 +187,8 @@ def validate_blueprint_dir(blueprint_dir: Path) -> list[str]:
                 name = str(item.get("name", "")).strip().lower()
                 if name not in ("local", "eas", "pai"):
                     errs.append(f"deploy.providers[{idx}].name must be one of: local, eas, pai")
+                if "start_command" in item:
+                    errs.append("deploy.providers[].start_command is removed; use image ENTRYPOINT/CMD")
 
     bp = load_blueprint(blueprint_dir)
 
@@ -203,20 +214,9 @@ def validate_blueprint_dir(blueprint_dir: Path) -> list[str]:
                 errs.append(f"build.model.weights[{idx}].url must be http/https")
 
     dockerfile = blueprint_dir / bp.build.dockerfile
-    requirements = blueprint_dir / bp.build.requirements
-    service = blueprint_dir / bp.build.service
 
     if not dockerfile.exists():
         errs.append(f"missing Dockerfile: {dockerfile}")
-    if not requirements.exists():
-        errs.append(f"missing requirements file: {requirements}")
-    if not service.exists():
-        errs.append(f"missing service file: {service}")
-
-    if bp.build.model.code:
-        model_code = blueprint_dir / bp.build.model.code
-        if not model_code.exists():
-            errs.append(f"missing model code file: {model_code}")
 
     if "pai" in configured:
         pai = bp.deploy.pai

@@ -4,10 +4,7 @@ provider: pai
 build:
   context: .
   dockerfile: Dockerfile
-  requirements: requirements.txt
-  service: service/app.py
   model:
-    code: model/infer.py
     weights:
       - name: model-weights
         url: https://huggingface.co/hf-internal-testing/tiny-random-BertModel/resolve/main/config.json
@@ -18,7 +15,6 @@ deploy:
     - name: local
       health_path: /healthz
       health_port: 18080
-      start_command: uvicorn service:app --host 0.0.0.0 --port 18080
     - name: pai
       region: cn-hangzhou
       workspace_id: "your-workspace-id"

@@ -3,11 +3,8 @@ provider: local
 
 build:
   dockerfile: Dockerfile
-  requirements: requirements.txt
-  service: service/app.py
   context: .
   model:
-    code: model/infer.py
     weights:
       - name: model-weights
         url: https://raw.githubusercontent.com/luaxlou/model-deployer/main/blueprints/example/model/tiny_model.joblib
@@ -18,7 +15,6 @@ deploy:
     - name: local
       health_path: /healthz
       health_port: 18080
-      start_command: uvicorn service:app --host 0.0.0.0 --port 18080
 
 verify:
   timeout_sec: 60

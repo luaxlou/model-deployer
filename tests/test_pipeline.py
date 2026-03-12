@@ -1,6 +1,8 @@
 from pathlib import Path
 
 from mdp_cli import pipeline
+from mdp_cli.blueprint import Blueprint, BuildConfig, DeployConfig, LocalDeployConfig
+from mdp_cli.providers import LocalProvider
 
 
 def test_deploy_build_only_skips_rollout_and_verify(monkeypatch):
@@ -82,3 +84,39 @@ deploy:
     out = bp_dir / ".mdp" / "weights" / "tiny-tiny.bin"
     assert out.exists()
     assert out.read_bytes() == b"abc123"
+
+
+def test_local_rollout_uses_image_default_command(tmp_path, monkeypatch):
+    provider = LocalProvider()
+    bp = Blueprint(
+        name="demo",
+        build=BuildConfig(),
+        deploy=DeployConfig(local=LocalDeployConfig(health_port=18080)),
+    )
+
+    captured = {}
+
+    def fake_run(cmd):
+        captured["cmd"] = cmd
+        return "ok"
+
+    monkeypatch.setattr("mdp_cli.providers._find_host_port", lambda _: 18081)
+    monkeypatch.setattr("mdp_cli.providers._run", fake_run)
+    monkeypatch.setattr(
+        "mdp_cli.providers.subprocess.run",
+        lambda *args, **kwargs: None,
+    )
+
+    res = provider.rollout(tmp_path, bp, image="demo:latest", env="prod")
+
+    assert res.status == "running"
+    assert captured["cmd"] == [
+        "docker",
+        "run",
+        "-d",
+        "--name",
+        "demo-prod",
+        "-p",
+        "18081:18080",
+        "demo:latest",
+    ]

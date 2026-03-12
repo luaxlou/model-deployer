@@ -34,6 +34,16 @@ mdp lint -d ./blueprints/example
 mdp deploy -d ./blueprints/example
 ```
 
+## Breaking Change（2026-03-12）
+
+- `Dockerfile` 现在是构建与运行入口的唯一来源。
+- `blueprint.yaml` 已移除以下字段，出现即 `mdp lint` 失败：
+  - `build.requirements`
+  - `build.service`
+  - `build.model.code`
+  - `deploy.providers[].start_command`
+- 启动命令请在镜像 `ENTRYPOINT`/`CMD` 中定义。
+
 ## AI 提示词（可复制）
 
 把下面这段直接贴给 AI 助手，用于说明当前项目需求：
@@ -95,6 +105,7 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 - 仅当 `verify.script` 显式配置时执行对应脚本
 - `weights` 从 `blueprint.yaml` 的 `build.model.weights` 读取
 - `build` 会先下载 `weights` 到 `<blueprint_dir>/.mdp/weights/`，再执行镜像构建
+- 镜像 tag 默认使用 `<git-sha-8>`，不可用时回退到 timestamp
 - local provider 自动选择可用主机端口，避免端口冲突
 
 ## 输出约定（无状态）
@@ -159,6 +170,7 @@ curl -X POST <endpoint>/predict \
 其中，工具会在部署时自动同步私网镜像字段的 tag（保留仓库地址不变）：
 - 优先 `eas-service.json` 的 `containers[0].image`
 - 兼容旧格式 `eas-service.json.image`
+- 推荐 `deploy.providers[name=pai].image` 与 `eas-service.json` 均配置 repo 前缀（tag 由 build/deploy 自动注入）
 
 PAI 镜像仓库支持分离配置：
 - `deploy.providers[name=pai].image`：构建后推送仓库（公网）
