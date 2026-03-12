@@ -32,6 +32,18 @@ def _safe_name(v: str) -> str:
     return s.strip("-").lower() or "model"
 
 
+def _split_image_ref(image: str) -> tuple[str, str]:
+    image = image.strip()
+    if "@" in image:
+        base, digest = image.split("@", 1)
+        return base, "@" + digest
+    last_slash = image.rfind("/")
+    last_colon = image.rfind(":")
+    if last_colon > last_slash:
+        return image[:last_colon], image[last_colon:]
+    return image, ""
+
+
 def _find_host_port(preferred: int) -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -138,13 +150,11 @@ class PaiProvider:
         }
 
     def build_image(self, blueprint_dir: Path, bp: Blueprint) -> str:
-        # For PAI, either use fixed image or build+push to configured public repo.
+        # For PAI, build+push to configured public repo in deploy.pai.image.
         pai = bp.deploy.pai
-        if pai.image:
-            return pai.image
-        push_repo = pai.push_image_repo
+        push_repo = pai.image
         if not push_repo:
-            raise RuntimeError("pai.image or deploy.pai.push_image_repo is required")
+            raise RuntimeError("deploy.pai.image is required")
 
         local_tag = f"mdp-{_safe_name(bp.name)}:{int(time.time())}"
         context_dir = (blueprint_dir / bp.build.context).resolve()
@@ -171,13 +181,36 @@ class PaiProvider:
             raise RuntimeError(f"pai.service_config is not valid JSON: {service_cfg_path}") from exc
 
         if isinstance(cfg, dict):
-            cfg_image = str(cfg.get("image", "")).strip()
-            if not cfg_image:
-                raise RuntimeError("pai-service.json must set private pull image in field: image")
-            if ":" in image:
-                image_tag = image.rsplit(":", 1)[1]
-                private_repo = cfg_image.rsplit(":", 1)[0] if ":" in cfg_image else cfg_image
-                cfg["image"] = f"{private_repo}:{image_tag}"
+            target_image = ""
+            container_image_path = False
+            containers = cfg.get("containers")
+            if (
+                isinstance(containers, list)
+                and len(containers) > 0
+                and isinstance(containers[0], dict)
+                and isinstance(containers[0].get("image"), str)
+            ):
+                target_image = containers[0]["image"].strip()
+                container_image_path = True
+            elif isinstance(cfg.get("image"), str):
+                target_image = str(cfg.get("image", "")).strip()
+
+            if not target_image:
+                raise RuntimeError(
+                    "pai-service.json must set private pull image in containers[0].image (preferred) or image"
+                )
+
+            private_repo, _ = _split_image_ref(target_image)
+            _, built_suffix = _split_image_ref(image)
+            if built_suffix:
+                new_private_image = f"{private_repo}{built_suffix}"
+            else:
+                new_private_image = target_image
+
+            if container_image_path:
+                containers[0]["image"] = new_private_image
+            else:
+                cfg["image"] = new_private_image
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as tmp:
             json.dump(cfg, tmp, ensure_ascii=False)

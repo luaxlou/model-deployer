@@ -51,8 +51,8 @@ deploy:
       service_name: your-service
       endpoint: https://your-pai-endpoint.example.com
       image: registry.cn-hangzhou.aliyuncs.com/your-namespace/your-image:tag
-      # push_image_repo 为构建后推送仓库（公网地址）
-      push_image_repo: registry-vpc.cn-hangzhou.aliyuncs.com/your-public-namespace/your-image
+      # image 为构建后推送仓库（公网地址）
+      image: registry-vpc.cn-hangzhou.aliyuncs.com/your-public-namespace/your-image
       service_config: pai-service.json
 
 verify:
@@ -74,8 +74,8 @@ verify:
 - `region`
 - `workspace_id`
 - `service_name`
-- `image`（固定镜像）或 `push_image_repo`（构建后推送公网仓库）
-- `pai-service.json` 中必须包含私网拉取镜像字段：`image`
+- `image`（构建后推送公网仓库）
+- `pai-service.json` 中必须包含私网拉取镜像字段（推荐 `containers[0].image`，兼容 `image`）
 - `service_config`（JSON 文件路径，基于 blueprint 目录）
 
 ## 默认值
