@@ -20,3 +20,4 @@ deploy:
 verify:
   timeout_sec: 60
   interval_sec: 2
+  script: smoke.sh

@@ -16,24 +16,24 @@ deploy:
   health_path: /healthz
   health_port: 18080
   start_command: uvicorn service:app --host 0.0.0.0 --port 18080
+  pai:
+    region: cn-hangzhou
+    workspace_id: "your-workspace-id"
+    service_name: pai-example
+    endpoint: https://your-pai-endpoint.example.com
+    image_repo: registry.cn-hangzhou.aliyuncs.com/your-namespace/pai-example
+    service_config: pai-service.json
+    status_cmd: >-
+      aliyun pai GetService --RegionId {region} --WorkspaceId {workspace_id}
+      --ServiceName {service_name}
+    logs_cmd: >-
+      aliyun pai ListServiceLogs --RegionId {region} --WorkspaceId {workspace_id}
+      --ServiceName {service_name} --PageSize {tail}
+    cost_cmd: >-
+      aliyun pai QueryServiceCost --RegionId {region} --WorkspaceId {workspace_id}
+      --ServiceName {service_name}
 
 verify:
   timeout_sec: 120
   interval_sec: 5
-
-pai:
-  region: cn-hangzhou
-  workspace_id: "your-workspace-id"
-  service_name: pai-example
-  endpoint: https://your-pai-endpoint.example.com
-  image_repo: registry.cn-hangzhou.aliyuncs.com/your-namespace/pai-example
-  service_config: pai-service.json
-  status_cmd: >-
-    aliyun pai GetService --RegionId {region} --WorkspaceId {workspace_id}
-    --ServiceName {service_name}
-  logs_cmd: >-
-    aliyun pai ListServiceLogs --RegionId {region} --WorkspaceId {workspace_id}
-    --ServiceName {service_name} --PageSize {tail}
-  cost_cmd: >-
-    aliyun pai QueryServiceCost --RegionId {region} --WorkspaceId {workspace_id}
-    --ServiceName {service_name}
+  script: ""

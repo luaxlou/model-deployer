@@ -54,8 +54,8 @@ def verify(
     else:
         return False, f"health check failed: {health_url}"
 
-    smoke = blueprint_dir / "smoke.sh"
-    if smoke.exists():
+    if bp.verify.script:
+        smoke = blueprint_dir / bp.verify.script
         env = dict(os.environ)
         env["MDP_ENDPOINT"] = base
         proc = subprocess.run(["bash", str(smoke)], capture_output=True, text=True, env=env)

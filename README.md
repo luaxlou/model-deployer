@@ -54,7 +54,7 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 
 ### 3) 验证
 
-- `mdp verify -d <dir>`：执行健康检查 + 可选 `smoke.sh`
+- `mdp verify -d <dir>`：执行健康检查 + 可选 `verify.script`
 
 ### 4) 观测与运维
 
@@ -75,7 +75,7 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 3. `verify`
 
 自动行为：
-- 若存在 `<blueprint_dir>/smoke.sh`，自动执行
+- 仅当 `verify.script` 显式配置时执行对应脚本
 - `weights` 从 `blueprint.yaml` 的 `build.model.weights` 读取
 - local provider 自动选择可用主机端口，避免端口冲突
 
@@ -129,11 +129,11 @@ curl -X POST <endpoint>/predict \
 
 - `local`：已实现，基于真实 Docker build/run/logs/inspect
 - `eas`：当前兼容映射到 local 行为（占位）
-- `pai`：已接入 JSON 配置更新模式（依赖 `aliyun` CLI + `blueprint.pai` 配置）
+- `pai`：已接入 JSON 配置更新模式（依赖 `aliyun` CLI + `blueprint.deploy.pai` 配置）
 
 ## PAI 使用说明（JSON 配置更新）
 
-`provider: pai` 时，`mdp` 会读取 `pai.service_config` 指向的 JSON 文件，并调用：
+`provider: pai` 时，`mdp` 会读取 `deploy.pai.service_config` 指向的 JSON 文件，并调用：
 
 - `aliyun pai UpdateService --Body file://<generated_json>`
 
@@ -141,9 +141,9 @@ curl -X POST <endpoint>/predict \
 - `image`
 
 其余运维命令仍由 `blueprint.yaml` 的命令模板控制：
-- `pai.status_cmd`
-- `pai.logs_cmd`
-- `pai.cost_cmd`（可选）
+- `deploy.pai.status_cmd`
+- `deploy.pai.logs_cmd`
+- `deploy.pai.cost_cmd`（可选）
 
 可用变量：
 - `{service_name}`

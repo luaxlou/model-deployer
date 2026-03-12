@@ -132,28 +132,30 @@ class PaiProvider:
             raise RuntimeError("aliyun CLI is required for provider=pai")
 
     def _params(self, bp: Blueprint, image: str = "") -> dict[str, str]:
+        pai = bp.deploy.pai
         return {
             "name": bp.name,
-            "service_name": bp.pai.service_name or bp.name,
+            "service_name": pai.service_name or bp.name,
             "image": image,
-            "region": bp.pai.region,
-            "workspace_id": bp.pai.workspace_id,
-            "instance_type": bp.pai.instance_type,
-            "replicas": str(bp.pai.replicas),
-            "endpoint": bp.pai.endpoint,
+            "region": pai.region,
+            "workspace_id": pai.workspace_id,
+            "instance_type": pai.instance_type,
+            "replicas": str(pai.replicas),
+            "endpoint": pai.endpoint,
         }
 
     def build_image(self, blueprint_dir: Path, bp: Blueprint) -> str:
         # For PAI, either use fixed image or build+push to configured image_repo.
-        if bp.pai.image:
-            return bp.pai.image
-        if not bp.pai.image_repo:
+        pai = bp.deploy.pai
+        if pai.image:
+            return pai.image
+        if not pai.image_repo:
             raise RuntimeError("pai.image or pai.image_repo is required")
 
         local_tag = f"mdp-{_safe_name(bp.name)}:{int(time.time())}"
         context_dir = (blueprint_dir / bp.build.context).resolve()
         dockerfile = (blueprint_dir / bp.build.dockerfile).resolve()
-        remote_tag = f"{bp.pai.image_repo}:{int(time.time())}"
+        remote_tag = f"{pai.image_repo}:{int(time.time())}"
 
         _run(["docker", "build", "-t", local_tag, "-f", str(dockerfile), str(context_dir)])
         _run(["docker", "tag", local_tag, remote_tag])
@@ -164,7 +166,8 @@ class PaiProvider:
         _ = env
         self._ensure_cli()
         params = self._params(bp, image=image)
-        service_cfg_path = (blueprint_dir / bp.pai.service_config).resolve()
+        pai = bp.deploy.pai
+        service_cfg_path = (blueprint_dir / pai.service_config).resolve()
         try:
             cfg = json.loads(service_cfg_path.read_text(encoding="utf-8"))
         except FileNotFoundError as exc:
@@ -186,9 +189,9 @@ class PaiProvider:
                 "pai",
                 "UpdateService",
                 "--RegionId",
-                bp.pai.region,
+                pai.region,
                 "--WorkspaceId",
-                bp.pai.workspace_id,
+                pai.workspace_id,
                 "--ServiceName",
                 params["service_name"],
                 "--Body",
@@ -197,33 +200,33 @@ class PaiProvider:
             _run(cmd)
         finally:
             Path(body_file).unlink(missing_ok=True)
-        endpoint = bp.pai.endpoint
+        endpoint = pai.endpoint
         if not endpoint:
             raise RuntimeError("pai.endpoint is required for verify after rollout")
         return RolloutResult(status="running", endpoint=endpoint, container_name=params["service_name"])
 
     def status(self, bp: Blueprint) -> dict:
         self._ensure_cli()
-        params = self._params(bp, image=bp.pai.image)
-        cmd = _render_cmd(bp.pai.status_cmd, params)
+        params = self._params(bp, image=bp.deploy.pai.image)
+        cmd = _render_cmd(bp.deploy.pai.status_cmd, params)
         out = _run(cmd)
         return {"deployment": bp.name, "provider": self.name, "status_raw": out}
 
     def logs(self, bp: Blueprint, tail: int) -> list[str]:
         self._ensure_cli()
-        params = self._params(bp, image=bp.pai.image)
+        params = self._params(bp, image=bp.deploy.pai.image)
         params["tail"] = str(tail)
-        cmd = _render_cmd(bp.pai.logs_cmd, params)
+        cmd = _render_cmd(bp.deploy.pai.logs_cmd, params)
         out = _run(cmd)
         return out.splitlines()
 
     def cost(self, bp: Blueprint, group_by: str) -> dict:
         self._ensure_cli()
-        if not bp.pai.cost_cmd:
+        if not bp.deploy.pai.cost_cmd:
             return {"deployment": bp.name, "group_by": group_by, "total_usd": -1}
-        params = self._params(bp, image=bp.pai.image)
+        params = self._params(bp, image=bp.deploy.pai.image)
         params["group_by"] = group_by
-        out = _run(_render_cmd(bp.pai.cost_cmd, params))
+        out = _run(_render_cmd(bp.deploy.pai.cost_cmd, params))
         return {"deployment": bp.name, "group_by": group_by, "cost_raw": out}
 
 

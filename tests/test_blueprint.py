@@ -36,6 +36,67 @@ build:
     weights:
       - name: model-weights
         url: https://example.com/model.bin
+deploy:
+  pai:
+    region: cn-hangzhou
+    workspace_id: "ws-1"
+    service_name: demo
+    image: registry.cn-hangzhou.aliyuncs.com/ns/demo:latest
+    service_config: pai-service.json
+    status_cmd: "aliyun pai GetService --ServiceName {service_name}"
+    logs_cmd: "aliyun pai ListServiceLogs --ServiceName {service_name} --PageSize {tail}"
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    errs = validate_blueprint_dir(bp_dir)
+    assert errs == []
+
+
+def test_validate_blueprint_verify_script_must_exist_when_specified(tmp_path):
+    bp_dir = tmp_path / "bp-verify"
+    bp_dir.mkdir()
+    (bp_dir / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
+    (bp_dir / "requirements.txt").write_text("fastapi\n", encoding="utf-8")
+    (bp_dir / "service.py").write_text("print('ok')\n", encoding="utf-8")
+    (bp_dir / "blueprint.yaml").write_text(
+        """
+name: verify-script-missing
+provider: local
+build:
+  model:
+    weights:
+      - name: model-weights
+        url: https://example.com/model.bin
+verify:
+  script: smoke.sh
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    errs = validate_blueprint_dir(bp_dir)
+    assert len(errs) == 1
+    assert "missing verify script file" in errs[0]
+
+
+def test_validate_blueprint_rejects_top_level_pai(tmp_path):
+    bp_dir = tmp_path / "bp-top-pai"
+    bp_dir.mkdir()
+    (bp_dir / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
+    (bp_dir / "requirements.txt").write_text("fastapi\n", encoding="utf-8")
+    (bp_dir / "service.py").write_text("print('ok')\n", encoding="utf-8")
+    (bp_dir / "pai-service.json").write_text("{}", encoding="utf-8")
+    (bp_dir / "blueprint.yaml").write_text(
+        """
+name: top-pai
+provider: pai
+build:
+  model:
+    weights:
+      - name: model-weights
+        url: https://example.com/model.bin
 pai:
   region: cn-hangzhou
   workspace_id: "ws-1"
@@ -50,4 +111,4 @@ pai:
     )
 
     errs = validate_blueprint_dir(bp_dir)
-    assert errs == []
+    assert "top-level 'pai' is not allowed; use deploy.pai" in errs
