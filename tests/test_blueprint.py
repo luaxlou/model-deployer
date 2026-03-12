@@ -18,3 +18,35 @@ def test_validate_blueprint_dir_success():
 def test_validate_pai_blueprint_dir_success():
     errs = validate_blueprint_dir(Path("blueprints/pai-example"))
     assert errs == []
+
+
+def test_validate_pai_blueprint_without_deploy_cmd_uses_service_config(tmp_path):
+    bp_dir = tmp_path / "bp"
+    bp_dir.mkdir()
+    (bp_dir / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
+    (bp_dir / "requirements.txt").write_text("fastapi\n", encoding="utf-8")
+    (bp_dir / "service.py").write_text("print('ok')\n", encoding="utf-8")
+    (bp_dir / "pai-service.json").write_text("{}", encoding="utf-8")
+    (bp_dir / "blueprint.yaml").write_text(
+        """
+name: pai-no-deploy-cmd
+provider: pai
+model:
+  weights:
+    - name: model-weights
+      url: https://example.com/model.bin
+pai:
+  region: cn-hangzhou
+  workspace_id: "ws-1"
+  service_name: demo
+  image: registry.cn-hangzhou.aliyuncs.com/ns/demo:latest
+  service_config: pai-service.json
+  status_cmd: "aliyun pai GetService --ServiceName {service_name}"
+  logs_cmd: "aliyun pai ListServiceLogs --ServiceName {service_name} --PageSize {tail}"
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    errs = validate_blueprint_dir(bp_dir)
+    assert errs == []

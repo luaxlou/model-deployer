@@ -1,0 +1,11 @@
+{
+  "service_name": "pai-example",
+  "runtime": "custom",
+  "resources": {
+    "cpu": 2,
+    "memory_gb": 4
+  },
+  "env": {
+    "MODEL_NAME": "demo"
+  }
+}

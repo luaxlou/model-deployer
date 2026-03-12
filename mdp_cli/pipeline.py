@@ -25,7 +25,7 @@ def build(blueprint_dir: Path) -> str:
 def rollout(blueprint_dir: Path, image: str, env: str):
     bp = load_blueprint(blueprint_dir)
     p = get_provider(bp.provider)
-    return p.rollout(bp, image=image, env=env)
+    return p.rollout(blueprint_dir, bp, image=image, env=env)
 
 
 def verify(

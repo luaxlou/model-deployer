@@ -18,6 +18,17 @@ mdp lint -d ./blueprints/example
 mdp deploy -d ./blueprints/example
 ```
 
+## AI 提示词（可复制）
+
+把下面这段直接贴给 AI 助手，用于说明当前项目需求：
+
+```text
+当前项目要引入 mdp 工具（mdp 在本地已安装）。
+
+使用说明请先阅读：
+https://github.com/luaxlou/model-deployer
+```
+
 ## 输入模型
 
 统一输入：
@@ -119,25 +130,28 @@ curl -X POST <endpoint>/predict \
 
 - `local`：已实现，基于真实 Docker build/run/logs/inspect
 - `eas`：当前兼容映射到 local 行为（占位）
-- `pai`：已接入命令模板执行链（依赖 `aliyun` CLI + `blueprint.pai` 配置）
+- `pai`：已接入 JSON 配置更新模式（依赖 `aliyun` CLI + `blueprint.pai` 配置）
 
-## PAI 使用说明（命令模板模式）
+## PAI 使用说明（JSON 配置更新）
 
-`provider: pai` 时，`mdp` 会按 `blueprint.yaml` 中 `pai.*_cmd` 执行真实命令：
+`provider: pai` 时，`mdp` 会读取 `pai.service_config` 指向的 JSON 文件，并调用：
 
-- `pai.deploy_cmd`
+- `aliyun pai UpdateService --Body file://<generated_json>`
+
+其中，工具会在部署时自动覆盖 JSON 中的以下字段：
+- `image`
+- `instance_type`（当配置时）
+- `replicas`
+
+其余运维命令仍由 `blueprint.yaml` 的命令模板控制：
 - `pai.status_cmd`
 - `pai.logs_cmd`
 - `pai.cost_cmd`（可选）
 
 可用变量：
 - `{service_name}`
-- `{image}`
 - `{region}`
 - `{workspace_id}`
-- `{instance_type}`
-- `{replicas}`
-- `{endpoint}`
 - `{tail}`
 - `{group_by}`
 

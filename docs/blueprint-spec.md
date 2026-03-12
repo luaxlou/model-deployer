@@ -56,7 +56,7 @@ pai:
   image: registry.cn-hangzhou.aliyuncs.com/your-namespace/your-image:tag
   # image_repo 与 image 二选一；使用 image_repo 时，工具会构建并 push
   image_repo: registry.cn-hangzhou.aliyuncs.com/your-namespace/your-image
-  deploy_cmd: "aliyun pai CreateService --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name} --Image {image}"
+  service_config: pai-service.json
   status_cmd: "aliyun pai GetService --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name}"
   logs_cmd: "aliyun pai ListServiceLogs --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name} --PageSize {tail}"
   cost_cmd: "aliyun pai QueryServiceCost --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name}"
@@ -75,7 +75,7 @@ pai:
 - `pai.workspace_id`
 - `pai.service_name`
 - `pai.image` 或 `pai.image_repo`
-- `pai.deploy_cmd`
+- `pai.service_config`（JSON 文件路径，基于 blueprint 目录）
 - `pai.status_cmd`
 - `pai.logs_cmd`
 

@@ -35,9 +35,9 @@ class PaiConfig:
     endpoint: str = ""
     image: str = ""
     image_repo: str = ""
+    service_config: str = ""
     instance_type: str = ""
     replicas: int = 1
-    deploy_cmd: str = ""
     status_cmd: str = ""
     logs_cmd: str = ""
     cost_cmd: str = ""
@@ -150,8 +150,12 @@ def validate_blueprint_dir(blueprint_dir: Path) -> list[str]:
             errs.append("pai.service_name is required when provider=pai")
         if not (bp.pai.image or bp.pai.image_repo):
             errs.append("pai.image or pai.image_repo is required when provider=pai")
-        if not bp.pai.deploy_cmd:
-            errs.append("pai.deploy_cmd is required when provider=pai")
+        if not bp.pai.service_config:
+            errs.append("pai.service_config is required when provider=pai")
+        else:
+            service_config = blueprint_dir / bp.pai.service_config
+            if not service_config.exists():
+                errs.append(f"missing pai service config file: {service_config}")
         if not bp.pai.status_cmd:
             errs.append("pai.status_cmd is required when provider=pai")
         if not bp.pai.logs_cmd:

@@ -7,6 +7,7 @@ import re
 import socket
 import shlex
 import subprocess
+import tempfile
 import time
 
 from mdp_cli.blueprint import Blueprint
@@ -62,7 +63,8 @@ class LocalProvider:
         ])
         return tag
 
-    def rollout(self, bp: Blueprint, image: str, env: str) -> RolloutResult:
+    def rollout(self, blueprint_dir: Path, bp: Blueprint, image: str, env: str) -> RolloutResult:
+        _ = blueprint_dir
         container_name = _safe_name(f"{bp.name}-{env}")
         host_port = _find_host_port(bp.deploy.health_port)
 
@@ -158,12 +160,46 @@ class PaiProvider:
         _run(["docker", "push", remote_tag])
         return remote_tag
 
-    def rollout(self, bp: Blueprint, image: str, env: str) -> RolloutResult:
+    def rollout(self, blueprint_dir: Path, bp: Blueprint, image: str, env: str) -> RolloutResult:
         _ = env
         self._ensure_cli()
         params = self._params(bp, image=image)
-        cmd = _render_cmd(bp.pai.deploy_cmd, params)
-        _run(cmd)
+        service_cfg_path = (blueprint_dir / bp.pai.service_config).resolve()
+        try:
+            cfg = json.loads(service_cfg_path.read_text(encoding="utf-8"))
+        except FileNotFoundError as exc:
+            raise RuntimeError(f"pai.service_config file not found: {service_cfg_path}") from exc
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(f"pai.service_config is not valid JSON: {service_cfg_path}") from exc
+
+        if isinstance(cfg, dict):
+            cfg["image"] = image
+            if bp.pai.instance_type:
+                cfg["instance_type"] = bp.pai.instance_type
+            cfg["replicas"] = bp.pai.replicas
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as tmp:
+            json.dump(cfg, tmp, ensure_ascii=False)
+            tmp.flush()
+            body_file = tmp.name
+
+        try:
+            cmd = [
+                "aliyun",
+                "pai",
+                "UpdateService",
+                "--RegionId",
+                bp.pai.region,
+                "--WorkspaceId",
+                bp.pai.workspace_id,
+                "--ServiceName",
+                params["service_name"],
+                "--Body",
+                f"file://{body_file}",
+            ]
+            _run(cmd)
+        finally:
+            Path(body_file).unlink(missing_ok=True)
         endpoint = bp.pai.endpoint
         if not endpoint:
             raise RuntimeError("pai.endpoint is required for verify after rollout")
