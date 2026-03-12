@@ -10,7 +10,7 @@ def test_deploy_build_only_skips_rollout_and_verify(monkeypatch):
         calls.append("lint")
         return True, []
 
-    def fake_build(_dir: Path, _provider: str):
+    def fake_build(_dir: Path):
         calls.append("build")
         return "example:tag"
 
@@ -29,9 +29,7 @@ def test_deploy_build_only_skips_rollout_and_verify(monkeypatch):
 
     result = pipeline.deploy(
         Path("blueprints/example"),
-        provider="local",
         env="prod",
-        on_fail="rollback",
         build_only=True,
     )
 

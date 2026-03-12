@@ -15,7 +15,7 @@ source .venv/bin/activate
 pip install -e .
 
 mdp lint -d ./blueprints/example
-mdp deploy -d ./blueprints/example --provider local
+mdp deploy -d ./blueprints/example
 ```
 
 ## 输入模型
@@ -37,14 +37,13 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 
 ### 2) 构建与发布
 
-- `mdp build -d <dir> [--provider local]`：构建镜像并输出 image
-- `mdp rollout -d <dir> --image <image> [--provider local]`：启动部署并输出 `endpoint/container_name/status`
-- `mdp deploy -d <dir> [--provider local] [--build-only]`：默认执行 `lint -> build -> rollout -> verify`，加 `--build-only` 时仅执行 `lint -> build`
+- `mdp build -d <dir>`：构建镜像并输出 image
+- `mdp rollout -d <dir> --image <image>`：启动部署并输出 `endpoint/container_name/status`
+- `mdp deploy -d <dir> [--build-only]`：默认执行 `lint -> build -> rollout -> verify`，加 `--build-only` 时仅执行 `lint -> build`
 
-### 3) 验证与回滚
+### 3) 验证
 
 - `mdp verify -d <dir>`：执行健康检查 + 可选 `smoke.sh`
-- `mdp rollback -d <dir> --to <image>`：回滚到指定镜像（local 模式要求显式镜像）
 
 ### 4) 观测与运维
 
@@ -55,9 +54,8 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 ## 默认参数与行为
 
 全局默认：
-- `--provider`: `local`
+- `provider`: 由 `blueprint.yaml` 的 `provider` 字段决定
 - `--follow`: `true`
-- `--on-fail`: `rollback`
 - `--env`: `prod`
 
 `mdp deploy` 默认流水线（不带 `--build-only`）：
@@ -100,7 +98,7 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 mdp lint -d ./blueprints/example
 mdp plan -d ./blueprints/example
 mdp build -d ./blueprints/example
-mdp deploy -d ./blueprints/example --provider local
+mdp deploy -d ./blueprints/example
 ```
 
 一键 smoke：
@@ -148,5 +146,5 @@ curl -X POST <endpoint>/predict \
 
 ```bash
 mdp lint -d ./blueprints/pai-example
-mdp deploy -d ./blueprints/pai-example --provider pai
+mdp deploy -d ./blueprints/pai-example
 ```

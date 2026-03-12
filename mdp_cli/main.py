@@ -12,7 +12,6 @@ from mdp_cli.blueprint import load_blueprint
 from mdp_cli.pipeline import build as run_build
 from mdp_cli.pipeline import deploy as run_deploy
 from mdp_cli.pipeline import lint as run_lint
-from mdp_cli.pipeline import rollback as run_rollback
 from mdp_cli.pipeline import rollout as run_rollout
 from mdp_cli.pipeline import verify as run_verify
 from mdp_cli.providers import get_provider
@@ -48,9 +47,7 @@ def plan(
         "provider": bp.provider,
         "pipeline": ["lint", "build", "rollout", "verify"],
         "defaults": {
-            "provider": "local",
             "follow": True,
-            "on_fail": "rollback",
             "env": "prod",
         },
     }
@@ -64,9 +61,8 @@ def plan(
 @app.command()
 def build(
     d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
-    provider: str = typer.Option("local", "--provider"),
 ):
-    image = run_build(d, provider)
+    image = run_build(d)
     _echo_json({"image": image})
 
 
@@ -74,12 +70,11 @@ def build(
 def rollout(
     d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
     image: str = typer.Option(..., "--image", help="Image ref to deploy"),
-    provider: str = typer.Option("local", "--provider"),
     env: str = typer.Option("prod", "--env"),
     follow: bool = typer.Option(True, "--follow/--no-follow"),
 ):
     _ = follow
-    res = run_rollout(d, provider=provider, image=image, env=env)
+    res = run_rollout(d, image=image, env=env)
     _echo_json(
         {
             "status": res.status,
@@ -105,14 +100,12 @@ def verify(
 @app.command()
 def deploy(
     d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
-    provider: str = typer.Option("local", "--provider"),
     env: str = typer.Option("prod", "--env"),
     follow: bool = typer.Option(True, "--follow/--no-follow"),
-    on_fail: str = typer.Option("rollback", "--on-fail"),
     build_only: bool = typer.Option(False, "--build-only", help="Only run lint + build"),
 ):
     _ = follow
-    result = run_deploy(d, provider=provider, env=env, on_fail=on_fail, build_only=build_only)
+    result = run_deploy(d, env=env, build_only=build_only)
     _echo_json(result)
 
     if not result.get("ok", False):
@@ -125,41 +118,21 @@ def deploy(
 
 
 @app.command()
-def rollback(
-    d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
-    provider: str = typer.Option("local", "--provider"),
-    to: str = typer.Option("previous", "--to"),
-    follow: bool = typer.Option(True, "--follow/--no-follow"),
-):
-    _ = follow
-    res = run_rollback(d, provider=provider, to=to)
-    _echo_json(
-        {
-            "status": res.status,
-            "endpoint": res.endpoint,
-            "container_name": res.container_name,
-        }
-    )
-
-
-@app.command()
 def status(
     d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
-    provider: str = typer.Option("local", "--provider"),
 ):
     bp = load_blueprint(d)
-    p = get_provider(provider)
+    p = get_provider(bp.provider)
     _echo_json(p.status(bp))
 
 
 @app.command()
 def logs(
     d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
-    provider: str = typer.Option("local", "--provider"),
     tail: int = typer.Option(200, "--tail"),
 ):
     bp = load_blueprint(d)
-    p = get_provider(provider)
+    p = get_provider(bp.provider)
     for line in p.logs(bp, tail=tail):
         console.print(line)
 
@@ -167,11 +140,10 @@ def logs(
 @app.command()
 def cost(
     d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
-    provider: str = typer.Option("local", "--provider"),
     group_by: str = typer.Option("deployment", "--group-by"),
 ):
     bp = load_blueprint(d)
-    p = get_provider(provider)
+    p = get_provider(bp.provider)
     data = p.cost(bp, group_by=group_by)
 
     table = Table(title="Cost")

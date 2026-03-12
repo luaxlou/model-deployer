@@ -16,21 +16,21 @@ def lint(blueprint_dir: Path) -> tuple[bool, list[str]]:
     return (len(errs) == 0, errs)
 
 
-def build(blueprint_dir: Path, provider: str) -> str:
+def build(blueprint_dir: Path) -> str:
     bp = load_blueprint(blueprint_dir)
-    p = get_provider(provider)
+    p = get_provider(bp.provider)
     return p.build_image(blueprint_dir, bp)
 
 
-def rollout(blueprint_dir: Path, provider: str, image: str, env: str):
+def rollout(blueprint_dir: Path, image: str, env: str):
     bp = load_blueprint(blueprint_dir)
-    p = get_provider(provider)
+    p = get_provider(bp.provider)
     return p.rollout(bp, image=image, env=env)
 
 
-def rollback(blueprint_dir: Path, provider: str, to: str):
+def rollback(blueprint_dir: Path, to: str):
     bp = load_blueprint(blueprint_dir)
-    p = get_provider(provider)
+    p = get_provider(bp.provider)
     return p.rollback(bp, to=to)
 
 
@@ -72,16 +72,16 @@ def verify(
     return True, "verification passed"
 
 
-def deploy(blueprint_dir: Path, provider: str, env: str, on_fail: str, build_only: bool = False) -> dict:
+def deploy(blueprint_dir: Path, env: str, build_only: bool = False) -> dict:
     ok, errs = lint(blueprint_dir)
     if not ok:
         return {"ok": False, "stage": "lint", "errors": errs}
 
-    image = build(blueprint_dir, provider)
+    image = build(blueprint_dir)
     if build_only:
         return {"ok": True, "stage": "build", "image": image, "mode": "build-only"}
 
-    rollout_res = rollout(blueprint_dir, provider, image=image, env=env)
+    rollout_res = rollout(blueprint_dir, image=image, env=env)
 
     ok, msg = verify(blueprint_dir, endpoint=rollout_res.endpoint)
     if ok:
@@ -92,15 +92,6 @@ def deploy(blueprint_dir: Path, provider: str, env: str, on_fail: str, build_onl
             "status": rollout_res.status,
             "endpoint": rollout_res.endpoint,
             "container_name": rollout_res.container_name,
-        }
-
-    if on_fail == "rollback":
-        rollback_res = rollback(blueprint_dir, provider, to="previous")
-        return {
-            "ok": False,
-            "stage": "verify",
-            "message": msg,
-            "rollback_container_name": rollback_res.container_name,
         }
 
     return {"ok": False, "stage": "verify", "message": msg}
