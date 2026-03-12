@@ -140,10 +140,6 @@ curl -X POST <endpoint>/predict \
 
 其中，工具会在部署时自动覆盖 JSON 中的以下字段：
 - `image`
-- `instance_type`（当配置时）
-- `replicas`
-
-建议：`pai.service_config` 不要重复声明已在 `blueprint.yaml -> pai` 中维护的字段（如 `service_name/region/workspace_id`）。
 
 其余运维命令仍由 `blueprint.yaml` 的命令模板控制：
 - `pai.status_cmd`

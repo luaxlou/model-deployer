@@ -174,9 +174,6 @@ class PaiProvider:
 
         if isinstance(cfg, dict):
             cfg["image"] = image
-            if bp.pai.instance_type:
-                cfg["instance_type"] = bp.pai.instance_type
-            cfg["replicas"] = bp.pai.replicas
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as tmp:
             json.dump(cfg, tmp, ensure_ascii=False)

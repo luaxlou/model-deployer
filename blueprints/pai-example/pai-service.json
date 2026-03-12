@@ -1,4 +1,7 @@
 {
+  "service_name": "pai-example",
+  "instance_type": "ecs.g6.large",
+  "replicas": 1,
   "runtime": "custom",
   "resources": {
     "cpu": 2,
