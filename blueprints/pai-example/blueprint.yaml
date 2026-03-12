@@ -24,7 +24,8 @@ deploy:
       workspace_id: "your-workspace-id"
       service_name: pai-example
       endpoint: https://your-pai-endpoint.example.com
-      image_repo: registry.cn-hangzhou.aliyuncs.com/your-namespace/pai-example
+      push_image_repo: registry-vpc.cn-hangzhou.aliyuncs.com/your-public-namespace/pai-example
+      image_repo: registry-internal-vpc.cn-hangzhou.aliyuncs.com/your-private-namespace/pai-example
       service_config: pai-service.json
 
 verify:

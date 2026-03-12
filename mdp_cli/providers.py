@@ -138,22 +138,26 @@ class PaiProvider:
         }
 
     def build_image(self, blueprint_dir: Path, bp: Blueprint) -> str:
-        # For PAI, either use fixed image or build+push to configured image_repo.
+        # For PAI, either use fixed image or build+push to configured public repo.
+        # If image_repo is configured for private pull, return that tag for deployment.
         pai = bp.deploy.pai
         if pai.image:
             return pai.image
-        if not pai.image_repo:
-            raise RuntimeError("pai.image or pai.image_repo is required")
+        push_repo = pai.push_image_repo or pai.image_repo
+        if not push_repo:
+            raise RuntimeError("pai.image or deploy.pai.push_image_repo/deploy.pai.image_repo is required")
 
         local_tag = f"mdp-{_safe_name(bp.name)}:{int(time.time())}"
         context_dir = (blueprint_dir / bp.build.context).resolve()
         dockerfile = (blueprint_dir / bp.build.dockerfile).resolve()
-        remote_tag = f"{pai.image_repo}:{int(time.time())}"
+        image_tag = str(int(time.time()))
+        push_tag = f"{push_repo}:{image_tag}"
+        deploy_tag = f"{pai.image_repo}:{image_tag}" if pai.image_repo else push_tag
 
         _run(["docker", "build", "-t", local_tag, "-f", str(dockerfile), str(context_dir)])
-        _run(["docker", "tag", local_tag, remote_tag])
-        _run(["docker", "push", remote_tag])
-        return remote_tag
+        _run(["docker", "tag", local_tag, push_tag])
+        _run(["docker", "push", push_tag])
+        return deploy_tag
 
     def rollout(self, blueprint_dir: Path, bp: Blueprint, image: str, env: str) -> RolloutResult:
         _ = env

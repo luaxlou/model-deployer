@@ -42,6 +42,7 @@ class PaiDeployConfig:
     service_name: str = ""
     endpoint: str = ""
     image: str = ""
+    push_image_repo: str = ""
     image_repo: str = ""
     service_config: str = ""
     instance_type: str = ""
