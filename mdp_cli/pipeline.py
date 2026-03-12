@@ -28,12 +28,6 @@ def rollout(blueprint_dir: Path, image: str, env: str):
     return p.rollout(bp, image=image, env=env)
 
 
-def rollback(blueprint_dir: Path, to: str):
-    bp = load_blueprint(blueprint_dir)
-    p = get_provider(bp.provider)
-    return p.rollback(bp, to=to)
-
-
 def verify(
     blueprint_dir: Path,
     endpoint: str | None = None,

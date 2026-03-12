@@ -59,7 +59,6 @@ pai:
   deploy_cmd: "aliyun pai CreateService --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name} --Image {image}"
   status_cmd: "aliyun pai GetService --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name}"
   logs_cmd: "aliyun pai ListServiceLogs --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name} --PageSize {tail}"
-  rollback_cmd: "aliyun pai UpdateService --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name} --Image {image}"
   cost_cmd: "aliyun pai QueryServiceCost --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name}"
 ```
 

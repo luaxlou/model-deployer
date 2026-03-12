@@ -87,12 +87,6 @@ class LocalProvider:
             container_name=container_name,
         )
 
-    def rollback(self, bp: Blueprint, to: str) -> RolloutResult:
-        # Stateless mode: explicit target image is required for real rollback.
-        if to in ("", "previous"):
-            raise RuntimeError("local rollback requires explicit --to <image>")
-        return self.rollout(bp, image=to, env="rollback")
-
     def status(self, bp: Blueprint) -> dict:
         name = _safe_name(f"{bp.name}-prod")
         out = _run(["docker", "inspect", name])
@@ -173,18 +167,6 @@ class PaiProvider:
         endpoint = bp.pai.endpoint
         if not endpoint:
             raise RuntimeError("pai.endpoint is required for verify after rollout")
-        return RolloutResult(status="running", endpoint=endpoint, container_name=params["service_name"])
-
-    def rollback(self, bp: Blueprint, to: str) -> RolloutResult:
-        self._ensure_cli()
-        if not bp.pai.rollback_cmd:
-            raise RuntimeError("pai.rollback_cmd is required for provider=pai")
-        params = self._params(bp, image=to)
-        cmd = _render_cmd(bp.pai.rollback_cmd, params)
-        _run(cmd)
-        endpoint = bp.pai.endpoint
-        if not endpoint:
-            raise RuntimeError("pai.endpoint is required after rollback")
         return RolloutResult(status="running", endpoint=endpoint, container_name=params["service_name"])
 
     def status(self, bp: Blueprint) -> dict:

@@ -128,7 +128,6 @@ curl -X POST <endpoint>/predict \
 - `pai.deploy_cmd`
 - `pai.status_cmd`
 - `pai.logs_cmd`
-- `pai.rollback_cmd`
 - `pai.cost_cmd`（可选）
 
 可用变量：

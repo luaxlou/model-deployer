@@ -38,7 +38,6 @@ class PaiConfig:
     instance_type: str = ""
     replicas: int = 1
     deploy_cmd: str = ""
-    rollback_cmd: str = ""
     status_cmd: str = ""
     logs_cmd: str = ""
     cost_cmd: str = ""
