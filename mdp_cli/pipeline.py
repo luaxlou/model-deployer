@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -14,6 +15,44 @@ import requests
 
 from mdp_cli.blueprint import load_blueprint, validate_blueprint_dir
 from mdp_cli.providers import get_provider
+
+
+def _last_build_state_path(blueprint_dir: Path) -> Path:
+    return blueprint_dir / ".mdp" / "last-build.json"
+
+
+def _write_last_build_state(blueprint_dir: Path, provider: str, image: str) -> None:
+    path = _last_build_state_path(blueprint_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "provider": provider,
+        "image": image,
+        "created_at": int(time.time()),
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _read_last_build_image(blueprint_dir: Path, provider: str) -> str:
+    path = _last_build_state_path(blueprint_dir)
+    if not path.exists():
+        raise RuntimeError("no last build found; run `mdp build` first or pass --image")
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"invalid last build state file: {path}") from exc
+
+    image = str(data.get("image", "")).strip()
+    if not image:
+        raise RuntimeError(f"invalid last build state file: missing image in {path}")
+
+    state_provider = str(data.get("provider", "")).strip()
+    if state_provider and state_provider != provider:
+        raise RuntimeError(
+            f"last build provider mismatch: state={state_provider}, requested={provider}; pass --image or rebuild"
+        )
+
+    return image
 
 
 def lint(blueprint_dir: Path) -> tuple[bool, list[str]]:
@@ -123,13 +162,25 @@ def build(blueprint_dir: Path, provider: str) -> str:
     _prefetch_weights(blueprint_dir)
     bp = load_blueprint(blueprint_dir)
     p = get_provider(provider)
-    return p.build_image(blueprint_dir, bp)
+    image = p.build_image(blueprint_dir, bp)
+    _write_last_build_state(blueprint_dir, provider=provider, image=image)
+    return image
 
 
-def rollout(blueprint_dir: Path, provider: str, image: str, env: str):
+def push(blueprint_dir: Path, provider: str, image: str | None = None) -> str:
     bp = load_blueprint(blueprint_dir)
     p = get_provider(provider)
-    return p.rollout(blueprint_dir, bp, image=image, env=env)
+    resolved_image = image or _read_last_build_image(blueprint_dir, provider=provider)
+    pushed_image = p.push_image(blueprint_dir, bp, image=resolved_image)
+    _write_last_build_state(blueprint_dir, provider=provider, image=pushed_image)
+    return pushed_image
+
+
+def deploy(blueprint_dir: Path, provider: str, image: str | None, env: str):
+    bp = load_blueprint(blueprint_dir)
+    p = get_provider(provider)
+    resolved_image = image or _read_last_build_image(blueprint_dir, provider=provider)
+    return p.rollout(blueprint_dir, bp, image=resolved_image, env=env)
 
 
 def verify(
@@ -182,16 +233,19 @@ def verify(
     return True, "verification passed"
 
 
-def deploy(blueprint_dir: Path, provider: str, env: str, build_only: bool = False) -> dict:
+def release(blueprint_dir: Path, provider: str, env: str) -> dict:
     try:
         image = build(blueprint_dir, provider=provider)
     except Exception as exc:
         return {"ok": False, "stage": "build", "message": str(exc)}
-    if build_only:
-        return {"ok": True, "stage": "build", "image": image, "mode": "build-only"}
 
     try:
-        rollout_res = rollout(blueprint_dir, provider=provider, image=image, env=env)
+        image = push(blueprint_dir, provider=provider, image=image)
+    except Exception as exc:
+        return {"ok": False, "stage": "push", "message": str(exc)}
+
+    try:
+        rollout_res = deploy(blueprint_dir, provider=provider, image=image, env=env)
     except Exception as exc:
         return {"ok": False, "stage": "deploy", "message": str(exc)}
 

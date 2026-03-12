@@ -9,9 +9,11 @@ from rich.table import Table
 
 from mdp_cli import codes
 from mdp_cli.blueprint import load_blueprint
-from mdp_cli.pipeline import deploy as run_deploy
+from mdp_cli.pipeline import build as run_build
 from mdp_cli.pipeline import lint as run_lint
-from mdp_cli.pipeline import rollout as run_rollout
+from mdp_cli.pipeline import deploy as run_deploy
+from mdp_cli.pipeline import push as run_push
+from mdp_cli.pipeline import release as run_release
 from mdp_cli.pipeline import verify as run_verify
 from mdp_cli.providers import get_provider
 
@@ -73,7 +75,7 @@ def plan(
         "name": bp.name,
         "default_provider": bp.deploy.default,
         "providers": bp.deploy.configured_providers,
-        "pipeline": ["build", "deploy", "verify"],
+        "pipeline": ["build", "push", "deploy", "verify"],
         "defaults": {
             "follow": True,
             "env": "prod",
@@ -95,15 +97,30 @@ def build(
     resolved_provider = _resolve_provider(bp, provider)
     progress_console.print(f"[cyan]provider:[/cyan] {resolved_provider}")
     progress_console.print("[cyan]stage:[/cyan] build (start)")
-    result = run_deploy(d, provider=resolved_provider, env="prod", build_only=True)
+    image = run_build(d, provider=resolved_provider)
     progress_console.print("[green]stage:[/green] build (done)")
-    _echo_json(result)
+    _echo_json({"ok": True, "stage": "build", "image": image})
 
 
 @app.command()
-def rollout(
+def push(
     d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
-    image: str = typer.Option(..., "--image", help="Image ref to deploy"),
+    image: str | None = typer.Option(None, "--image", help="Image ref to push; defaults to last build image"),
+    provider: str | None = typer.Option(None, "--provider"),
+):
+    bp = load_blueprint(d)
+    resolved_provider = _resolve_provider(bp, provider)
+    progress_console.print(f"[cyan]provider:[/cyan] {resolved_provider}")
+    progress_console.print("[cyan]stage:[/cyan] push (start)")
+    pushed = run_push(d, provider=resolved_provider, image=image)
+    progress_console.print("[green]stage:[/green] push (done)")
+    _echo_json({"ok": True, "stage": "push", "image": pushed})
+
+
+@app.command()
+def deploy(
+    d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
+    image: str | None = typer.Option(None, "--image", help="Image ref to deploy; defaults to last build image"),
     provider: str | None = typer.Option(None, "--provider"),
     env: str = typer.Option("prod", "--env"),
     follow: bool = typer.Option(True, "--follow/--no-follow"),
@@ -113,7 +130,7 @@ def rollout(
     resolved_provider = _resolve_provider(bp, provider)
     progress_console.print(f"[cyan]provider:[/cyan] {resolved_provider}")
     progress_console.print("[cyan]stage:[/cyan] deploy (start)")
-    res = run_rollout(d, provider=resolved_provider, image=image, env=env)
+    res = run_deploy(d, provider=resolved_provider, image=image, env=env)
     progress_console.print("[green]stage:[/green] deploy (done)")
     _echo_json(
         {
@@ -150,21 +167,18 @@ def verify(
 
 
 @app.command()
-def deploy(
+def release(
     d: Path = typer.Option(..., "-d", "--dir", help="Blueprint directory"),
     provider: str | None = typer.Option(None, "--provider"),
     env: str = typer.Option("prod", "--env"),
     follow: bool = typer.Option(True, "--follow/--no-follow"),
-    build_only: bool = typer.Option(False, "--build-only", help="Only run build"),
 ):
     _ = follow
     bp = load_blueprint(d)
     resolved_provider = _resolve_provider(bp, provider)
     progress_console.print(f"[cyan]provider:[/cyan] {resolved_provider}")
-    progress_console.print("[cyan]pipeline:[/cyan] build -> deploy -> verify")
-    if build_only:
-        progress_console.print("[cyan]mode:[/cyan] build-only")
-    result = run_deploy(d, provider=resolved_provider, env=env, build_only=build_only)
+    progress_console.print("[cyan]pipeline:[/cyan] build -> push -> deploy -> verify")
+    result = run_release(d, provider=resolved_provider, env=env)
     _echo_json(result)
 
     if not result.get("ok", False):
@@ -173,6 +187,8 @@ def deploy(
         if stage == "verify":
             raise typer.Exit(code=codes.VERIFY_ERROR)
         if stage == "build":
+            raise typer.Exit(code=codes.BUILD_ERROR)
+        if stage == "push":
             raise typer.Exit(code=codes.BUILD_ERROR)
         raise typer.Exit(code=codes.DEPLOY_ERROR)
     progress_console.print(f"[green]stage:[/green] {result.get('stage', 'unknown')} (done)")

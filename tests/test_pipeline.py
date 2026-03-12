@@ -6,7 +6,7 @@ from mdp_cli.blueprint import Blueprint, BuildConfig, DeployConfig, LocalDeployC
 from mdp_cli.providers import LocalProvider
 
 
-def test_deploy_build_only_skips_rollout_and_verify(monkeypatch):
+def test_release_runs_build_push_deploy_verify(monkeypatch):
     calls = []
 
     def fake_build(_dir: Path, provider: str):
@@ -14,32 +14,40 @@ def test_deploy_build_only_skips_rollout_and_verify(monkeypatch):
         calls.append("build")
         return "example:tag"
 
-    def fake_rollout(*args, **kwargs):
-        calls.append("rollout")
-        raise AssertionError("rollout should not be called in build-only mode")
+    def fake_push(_dir: Path, provider: str, image: str | None):
+        assert provider == "local"
+        assert image == "example:tag"
+        calls.append("push")
+        return "example:tag"
+
+    class DeployRes:
+        status = "running"
+        endpoint = "http://127.0.0.1:18080"
+        container_name = "demo-prod"
+
+    def fake_deploy(*args, **kwargs):
+        calls.append("deploy")
+        return DeployRes()
 
     def fake_verify(*args, **kwargs):
         calls.append("verify")
-        raise AssertionError("verify should not be called in build-only mode")
+        return True, "verification passed"
 
     monkeypatch.setattr(pipeline, "build", fake_build)
-    monkeypatch.setattr(pipeline, "rollout", fake_rollout)
+    monkeypatch.setattr(pipeline, "push", fake_push)
+    monkeypatch.setattr(pipeline, "deploy", fake_deploy)
     monkeypatch.setattr(pipeline, "verify", fake_verify)
 
-    result = pipeline.deploy(
+    result = pipeline.release(
         Path("blueprints/example"),
         provider="local",
         env="prod",
-        build_only=True,
     )
 
-    assert result == {
-        "ok": True,
-        "stage": "build",
-        "image": "example:tag",
-        "mode": "build-only",
-    }
-    assert calls == ["build"]
+    assert result["ok"] is True
+    assert result["stage"] == "verify"
+    assert result["image"] == "example:tag"
+    assert calls == ["build", "push", "deploy", "verify"]
 
 
 def test_prefetch_weights_downloads_file(tmp_path, monkeypatch):
@@ -133,6 +141,50 @@ deploy:
     extracted = bp_dir / ".mdp" / "weights" / "tiny_model" / "model.bin"
     assert extracted.exists()
     assert extracted.read_bytes() == b"abc123"
+
+
+def test_deploy_uses_last_build_image_when_image_not_provided(tmp_path, monkeypatch):
+    bp_dir = tmp_path / "bp"
+    bp_dir.mkdir()
+    (bp_dir / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
+    (bp_dir / "requirements.txt").write_text("fastapi\n", encoding="utf-8")
+    (bp_dir / "service.py").write_text("print('ok')\n", encoding="utf-8")
+    (bp_dir / "blueprint.yaml").write_text(
+        """
+name: last-build-rollout
+provider: local
+build:
+  weights:
+    - https://example.com/tiny.bin
+deploy:
+  providers:
+    - name: local
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    state_dir = bp_dir / ".mdp"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "last-build.json").write_text(
+        '{"image":"repo/demo:abc123","provider":"local"}\n',
+        encoding="utf-8",
+    )
+
+    captured = {}
+
+    class FakeProvider:
+        def rollout(self, _blueprint_dir, _bp, image, env):
+            captured["image"] = image
+            captured["env"] = env
+            return "ok"
+
+    monkeypatch.setattr(pipeline, "get_provider", lambda _: FakeProvider())
+    result = pipeline.deploy(bp_dir, provider="local", image=None, env="prod")
+
+    assert result == "ok"
+    assert captured["image"] == "repo/demo:abc123"
+    assert captured["env"] == "prod"
 
 
 def test_download_file_resumes_from_part_file(tmp_path, monkeypatch):

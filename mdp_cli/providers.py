@@ -113,6 +113,11 @@ class LocalProvider:
         ], step="docker build")
         return tag
 
+    def push_image(self, blueprint_dir: Path, bp: Blueprint, image: str) -> str:
+        _ = blueprint_dir
+        _ = bp
+        return image
+
     def rollout(self, blueprint_dir: Path, bp: Blueprint, image: str, env: str) -> RolloutResult:
         _ = blueprint_dir
         cfg = bp.deploy.local if self.name == "local" else bp.deploy.eas
@@ -186,21 +191,26 @@ class PaiProvider:
         }
 
     def build_image(self, blueprint_dir: Path, bp: Blueprint) -> str:
-        # For PAI, build+push to configured public repo in deploy.pai.image.
+        release_tag = _release_tag()
+        local_tag = f"mdp-{_safe_name(bp.name)}:{release_tag}"
+        context_dir = (blueprint_dir / bp.build.context).resolve()
+        dockerfile = (blueprint_dir / bp.build.dockerfile).resolve()
+        _run_stream(["docker", "build", "-t", local_tag, "-f", str(dockerfile), str(context_dir)], step="docker build")
+        return local_tag
+
+    def push_image(self, blueprint_dir: Path, bp: Blueprint, image: str) -> str:
+        _ = blueprint_dir
         pai = bp.deploy.pai
         push_repo = pai.image
         if not push_repo:
             raise RuntimeError("deploy.pai.image is required")
 
-        release_tag = _release_tag()
-        local_tag = f"mdp-{_safe_name(bp.name)}:{release_tag}"
-        context_dir = (blueprint_dir / bp.build.context).resolve()
-        dockerfile = (blueprint_dir / bp.build.dockerfile).resolve()
         push_repo_base, _ = _split_image_ref(push_repo)
-        push_tag = f"{push_repo_base}:{release_tag}"
-
-        _run_stream(["docker", "build", "-t", local_tag, "-f", str(dockerfile), str(context_dir)], step="docker build")
-        _run(["docker", "tag", local_tag, push_tag])
+        _, suffix = _split_image_ref(image)
+        if not suffix:
+            raise RuntimeError(f"built image has no tag/digest: {image}")
+        push_tag = f"{push_repo_base}{suffix}"
+        _run(["docker", "tag", image, push_tag])
         _run_stream(["docker", "push", push_tag], step="docker push")
         return push_tag
 

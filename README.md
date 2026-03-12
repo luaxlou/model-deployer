@@ -14,7 +14,7 @@
 它强调三件事：
 - 用 `blueprint.yaml` 统一描述构建、部署、验证
 - 用同一套 CLI 贯通本地与云上（如 PAI/EAS）执行路径
-- 用最小认知负担完成 `build -> deploy -> verify`
+- 用最小认知负担完成 `build -> push -> deploy -> verify`
 
 ## 适用人群
 
@@ -31,7 +31,7 @@ source .venv/bin/activate
 pip install -e .
 
 mdp lint -d ./blueprints/example
-mdp deploy -d ./blueprints/example
+mdp release -d ./blueprints/example
 ```
 
 ## Breaking Change（2026-03-12）
@@ -74,10 +74,10 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 
 ### 2) 构建与发布
 
-- `mdp build -d <dir>`：构建镜像并输出 image
-- `mdp build -d <dir> [--provider <name>]`：等价于 `mdp deploy -d <dir> --build-only [--provider <name>]`
-- `mdp rollout -d <dir> --image <image>`：启动部署并输出 `endpoint/container_name/status`
-- `mdp deploy -d <dir> [--provider <name>] [--build-only]`：默认执行 `build -> deploy -> verify`，加 `--build-only` 时仅执行 `build`
+- `mdp build -d <dir> [--provider <name>]`：构建镜像并写入 `.mdp/last-build.json`
+- `mdp push -d <dir> [--provider <name>] [--image <image>]`：推送镜像（默认使用 last-build image）
+- `mdp deploy -d <dir> [--provider <name>] [--image <image>]`：执行部署（默认使用 last-build image）
+- `mdp release -d <dir> [--provider <name>]`：串行执行 `build -> push -> deploy -> verify`
 
 ### 3) 验证
 
@@ -96,15 +96,20 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 - `--follow`: `true`
 - `--env`: `prod`
 
-`mdp deploy` 默认流水线（不带 `--build-only`）：
+`mdp release` 默认流水线：
 1. `build`
-2. `deploy`
-3. `verify`
+2. `push`
+3. `deploy`
+4. `verify`
+
+`mdp deploy` 为单独步骤：
+- 仅执行部署（不含 build/push/verify）
 
 自动行为：
 - 仅当 `verify.script` 显式配置时执行对应脚本
 - `weights` 从 `blueprint.yaml` 的 `build.weights`（URL 字符串数组）读取
 - `build` 会先下载 `weights` 到 `<blueprint_dir>/.mdp/weights/`，再执行镜像构建
+- 若权重文件是压缩包（`.zip/.tar/.tar.gz/.tgz`），会自动解压到 `<blueprint_dir>/.mdp/weights/` 并保留包内目录结构
 - 镜像 tag 默认使用 `<git-sha-8>`，不可用时回退到 timestamp
 - local provider 自动选择可用主机端口，避免端口冲突
 
@@ -138,7 +143,10 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 mdp lint -d ./blueprints/example
 mdp plan -d ./blueprints/example
 mdp build -d ./blueprints/example
+mdp push -d ./blueprints/example
 mdp deploy -d ./blueprints/example
+mdp verify -d ./blueprints/example
+mdp release -d ./blueprints/example
 ```
 
 一键 smoke：
