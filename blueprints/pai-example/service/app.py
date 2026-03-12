@@ -1,15 +1,10 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
 
-from model.model import TinySklearnModel
+from model.infer import TinySklearnModel
+from service.schemas import PredictRequest
 
 app = FastAPI()
 model = TinySklearnModel()
-
-
-class PredictRequest(BaseModel):
-    x1: float
-    x2: float
 
 
 @app.get('/healthz')

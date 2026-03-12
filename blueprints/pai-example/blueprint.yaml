@@ -5,9 +5,9 @@ build:
   context: .
   dockerfile: Dockerfile
   requirements: requirements.txt
-  service: service.py
+  service: service/app.py
   model:
-    code: model/model.py
+    code: model/infer.py
     weights:
       - name: model-weights
         url: https://huggingface.co/hf-internal-testing/tiny-random-BertModel/resolve/main/config.json
