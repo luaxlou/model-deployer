@@ -17,6 +17,7 @@ from mdp_cli.providers import get_provider
 
 app = typer.Typer(help="Stateless model deployment CLI")
 console = Console()
+progress_console = Console(stderr=True)
 
 
 def _echo_json(data: dict):
@@ -91,7 +92,11 @@ def build(
     provider: str | None = typer.Option(None, "--provider"),
 ):
     bp = load_blueprint(d)
-    result = run_deploy(d, provider=_resolve_provider(bp, provider), env="prod", build_only=True)
+    resolved_provider = _resolve_provider(bp, provider)
+    progress_console.print(f"[cyan]provider:[/cyan] {resolved_provider}")
+    progress_console.print("[cyan]stage:[/cyan] build (start)")
+    result = run_deploy(d, provider=resolved_provider, env="prod", build_only=True)
+    progress_console.print("[green]stage:[/green] build (done)")
     _echo_json(result)
 
 
@@ -105,7 +110,11 @@ def rollout(
 ):
     _ = follow
     bp = load_blueprint(d)
-    res = run_rollout(d, provider=_resolve_provider(bp, provider), image=image, env=env)
+    resolved_provider = _resolve_provider(bp, provider)
+    progress_console.print(f"[cyan]provider:[/cyan] {resolved_provider}")
+    progress_console.print("[cyan]stage:[/cyan] deploy (start)")
+    res = run_rollout(d, provider=resolved_provider, image=image, env=env)
+    progress_console.print("[green]stage:[/green] deploy (done)")
     _echo_json(
         {
             "status": res.status,
@@ -123,16 +132,21 @@ def verify(
     interval_sec: int | None = typer.Option(None, "--interval-sec"),
 ):
     bp = load_blueprint(d)
+    resolved_provider = _resolve_provider(bp, provider)
+    progress_console.print(f"[cyan]provider:[/cyan] {resolved_provider}")
+    progress_console.print("[cyan]stage:[/cyan] verify (start)")
     ok, msg = run_verify(
         d,
-        provider=_resolve_provider(bp, provider),
+        provider=resolved_provider,
         timeout_sec=timeout_sec,
         interval_sec=interval_sec,
     )
     if not ok:
         console.print(f"[red]{msg}[/red]")
+        progress_console.print("[red]stage:[/red] verify (failed)")
         raise typer.Exit(code=codes.VERIFY_ERROR)
     console.print(f"[green]{msg}[/green]")
+    progress_console.print("[green]stage:[/green] verify (done)")
 
 
 @app.command()
@@ -145,16 +159,23 @@ def deploy(
 ):
     _ = follow
     bp = load_blueprint(d)
-    result = run_deploy(d, provider=_resolve_provider(bp, provider), env=env, build_only=build_only)
+    resolved_provider = _resolve_provider(bp, provider)
+    progress_console.print(f"[cyan]provider:[/cyan] {resolved_provider}")
+    progress_console.print("[cyan]pipeline:[/cyan] build -> deploy -> verify")
+    if build_only:
+        progress_console.print("[cyan]mode:[/cyan] build-only")
+    result = run_deploy(d, provider=resolved_provider, env=env, build_only=build_only)
     _echo_json(result)
 
     if not result.get("ok", False):
         stage = result.get("stage")
+        progress_console.print(f"[red]stage:[/red] {stage} (failed)")
         if stage == "verify":
             raise typer.Exit(code=codes.VERIFY_ERROR)
         if stage == "build":
             raise typer.Exit(code=codes.BUILD_ERROR)
         raise typer.Exit(code=codes.DEPLOY_ERROR)
+    progress_console.print(f"[green]stage:[/green] {result.get('stage', 'unknown')} (done)")
 
 
 @app.command()
