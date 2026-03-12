@@ -94,6 +94,7 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 自动行为：
 - 仅当 `verify.script` 显式配置时执行对应脚本
 - `weights` 从 `blueprint.yaml` 的 `build.model.weights` 读取
+- `build` 会先下载 `weights` 到 `<blueprint_dir>/.mdp/weights/`，再执行镜像构建
 - local provider 自动选择可用主机端口，避免端口冲突
 
 ## 输出约定（无状态）
