@@ -32,10 +32,8 @@ def test_validate_pai_blueprint_with_build_model_uses_eas_config(tmp_path):
 name: pai-no-deploy-cmd
 provider: pai
 build:
-  model:
-    weights:
-      - name: model-weights
-        url: https://example.com/model.bin
+  weights:
+    - https://example.com/model.bin
 deploy:
   providers:
     - name: pai
@@ -64,10 +62,8 @@ def test_validate_blueprint_verify_script_must_exist_when_specified(tmp_path):
 name: verify-script-missing
 provider: local
 build:
-  model:
-    weights:
-      - name: model-weights
-        url: https://example.com/model.bin
+  weights:
+    - https://example.com/model.bin
 verify:
   script: smoke.sh
 """.strip()
@@ -92,10 +88,8 @@ def test_validate_blueprint_rejects_top_level_pai(tmp_path):
 name: top-pai
 provider: pai
 build:
-  model:
-    weights:
-      - name: model-weights
-        url: https://example.com/model.bin
+  weights:
+    - https://example.com/model.bin
 pai:
   region: cn-hangzhou
   workspace_id: "ws-1"
@@ -126,8 +120,7 @@ build:
   model:
     code: model/infer.py
     weights:
-      - name: model-weights
-        url: https://example.com/model.bin
+      - https://example.com/model.bin
 deploy:
   providers:
     - name: local
@@ -141,4 +134,5 @@ deploy:
     assert "build.requirements is removed; define dependencies in Dockerfile" in errs
     assert "build.service is removed; define runtime entrypoint in Dockerfile" in errs
     assert "build.model.code is removed; package model code through Dockerfile build context" in errs
+    assert "build.model.weights is removed; use build.weights (string array of URLs)" in errs
     assert "deploy.providers[].start_command is removed; use image ENTRYPOINT/CMD" in errs

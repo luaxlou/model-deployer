@@ -18,11 +18,11 @@ def lint(blueprint_dir: Path) -> tuple[bool, list[str]]:
     return (len(errs) == 0, errs)
 
 
-def _weight_target_path(blueprint_dir: Path, name: str, url: str) -> Path:
+def _weight_target_path(blueprint_dir: Path, url: str) -> Path:
     parsed = urlparse(url)
     basename = Path(parsed.path).name or "weight.bin"
-    safe_name = "".join(c if c.isalnum() or c in ("-", "_", ".") else "-" for c in name).strip("-") or "weight"
-    return blueprint_dir / ".mdp" / "weights" / f"{safe_name}-{basename}"
+    key = hashlib.sha1(url.encode("utf-8")).hexdigest()[:12]
+    return blueprint_dir / ".mdp" / "weights" / f"{key}-{basename}"
 
 
 def _sha256_of_file(path: Path) -> str:
@@ -45,23 +45,12 @@ def _download_file(url: str, target: Path) -> None:
 
 def _prefetch_weights(blueprint_dir: Path) -> None:
     bp = load_blueprint(blueprint_dir)
-    for w in bp.build.model.weights:
-        target = _weight_target_path(blueprint_dir, w.name, w.url)
-        if target.exists() and w.sha256:
-            if _sha256_of_file(target) == w.sha256.lower():
-                continue
-            target.unlink(missing_ok=True)
-        elif target.exists():
+    for url in bp.build.weights:
+        target = _weight_target_path(blueprint_dir, url)
+        if target.exists():
             continue
 
-        _download_file(w.url, target)
-        if w.sha256:
-            actual = _sha256_of_file(target)
-            if actual != w.sha256.lower():
-                target.unlink(missing_ok=True)
-                raise RuntimeError(
-                    f"weight sha256 mismatch for {w.name}: expected {w.sha256.lower()}, got {actual}"
-                )
+        _download_file(url, target)
 
 
 def build(blueprint_dir: Path, provider: str) -> str:

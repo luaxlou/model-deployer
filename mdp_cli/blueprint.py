@@ -2,27 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 import yaml
-
-
-@dataclass
-class WeightAsset:
-    name: str
-    url: str
-    sha256: str | None = None
-
-
-@dataclass
-class ModelConfig:
-    weights: list[WeightAsset] = field(default_factory=list)
 
 
 @dataclass
 class BuildConfig:
     context: str = "."
     dockerfile: str = "Dockerfile"
-    model: ModelConfig = field(default_factory=ModelConfig)
+    weights: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -68,25 +55,23 @@ class Blueprint:
     verify: VerifyConfig = field(default_factory=VerifyConfig)
 
 
-def _as_weight(item: dict[str, Any]) -> WeightAsset:
-    return WeightAsset(
-        name=str(item.get("name", "")),
-        url=str(item.get("url", "")),
-        sha256=item.get("sha256"),
-    )
-
-
 def load_blueprint(blueprint_dir: Path) -> Blueprint:
     raw = yaml.safe_load((blueprint_dir / "blueprint.yaml").read_text(encoding="utf-8")) or {}
 
     build_raw = raw.get("build") or {}
-    model_raw = (build_raw.get("model") or raw.get("model") or {})
-    weights = [_as_weight(w) for w in (model_raw.get("weights") or [])]
-    model = ModelConfig(weights=weights)
+    weights_raw = build_raw.get("weights") or []
+    weights: list[str] = []
+    if isinstance(weights_raw, list):
+        for item in weights_raw:
+            if isinstance(item, str):
+                weights.append(item.strip())
+            elif isinstance(item, dict) and isinstance(item.get("url"), str):
+                # Defensive parse for mixed/legacy shapes; validation enforces strict string[]
+                weights.append(str(item.get("url", "")).strip())
     build_allowed_keys = {"context", "dockerfile"}
     build = BuildConfig(
         **{k: v for k, v in build_raw.items() if k in build_allowed_keys},
-        model=model,
+        weights=weights,
     )
     deploy_raw = raw.get("deploy") or {}
     local_raw = None
@@ -165,15 +150,17 @@ def validate_blueprint_dir(blueprint_dir: Path) -> list[str]:
 
     raw = yaml.safe_load(blueprint_path.read_text(encoding="utf-8")) or {}
     build_raw = raw.get("build") or {}
-    model_raw = (build_raw.get("model") or raw.get("model") or {})
     if isinstance(raw, dict) and "pai" in raw:
         errs.append("top-level 'pai' is not allowed; use deploy.providers with name='pai'")
     if "requirements" in build_raw:
         errs.append("build.requirements is removed; define dependencies in Dockerfile")
     if "service" in build_raw:
         errs.append("build.service is removed; define runtime entrypoint in Dockerfile")
+    model_raw = build_raw.get("model") if isinstance(build_raw.get("model"), dict) else None
     if isinstance(model_raw, dict) and "code" in model_raw:
         errs.append("build.model.code is removed; package model code through Dockerfile build context")
+    if isinstance(model_raw, dict) and "weights" in model_raw:
+        errs.append("build.model.weights is removed; use build.weights (string array of URLs)")
     deploy_raw = raw.get("deploy") or {}
     providers_raw = deploy_raw.get("providers")
     if providers_raw is not None:
@@ -204,14 +191,21 @@ def validate_blueprint_dir(blueprint_dir: Path) -> list[str]:
     if bp.deploy.default and bp.deploy.default not in configured:
         errs.append("deploy.default must be one of configured deploy providers")
 
-    if not bp.build.model.weights:
-        errs.append("build.model.weights must contain at least one item")
+    weights_raw = build_raw.get("weights")
+    if weights_raw is None:
+        errs.append("build.weights must contain at least one item")
+    elif not isinstance(weights_raw, list):
+        errs.append("build.weights must be an array of URL strings")
     else:
-        for idx, w in enumerate(bp.build.model.weights):
-            if not w.name:
-                errs.append(f"build.model.weights[{idx}].name is required")
-            if not (w.url.startswith("http://") or w.url.startswith("https://")):
-                errs.append(f"build.model.weights[{idx}].url must be http/https")
+        if len(weights_raw) == 0:
+            errs.append("build.weights must contain at least one item")
+        for idx, w in enumerate(weights_raw):
+            if not isinstance(w, str):
+                errs.append(f"build.weights[{idx}] must be a URL string")
+                continue
+            url = w.strip()
+            if not (url.startswith("http://") or url.startswith("https://")):
+                errs.append(f"build.weights[{idx}] must be http/https")
 
     dockerfile = blueprint_dir / bp.build.dockerfile
 

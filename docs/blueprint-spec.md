@@ -26,11 +26,8 @@ provider: local
 build:
   context: .
   dockerfile: Dockerfile
-  model:
-    weights:
-      - name: model-weights
-        url: https://example.com/model.bin
-        sha256: "optional"
+  weights:
+    - https://example.com/model.bin
 
 deploy:
   default: pai
@@ -58,8 +55,7 @@ verify:
 ## 必填项
 
 - `name`
-- `build.model.weights[*].name`
-- `build.model.weights[*].url`（必须是 `http/https`）
+- `build.weights[*]`（必须是 `http/https` URL 字符串）
 - `build.dockerfile` 对应文件存在（`Dockerfile`）
 - `deploy.providers` 至少配置一种部署方式（`name` 为 `local` / `eas` / `pai`）
 
@@ -93,4 +89,5 @@ verify:
   - `build.requirements`
   - `build.service`
   - `build.model.code`
+  - `build.model.weights`
   - `deploy.providers[].start_command`

@@ -52,10 +52,8 @@ def test_prefetch_weights_downloads_file(tmp_path, monkeypatch):
 name: weight-download
 provider: local
 build:
-  model:
-    weights:
-      - name: tiny
-        url: https://example.com/tiny.bin
+  weights:
+    - https://example.com/tiny.bin
 deploy:
   providers:
     - name: local
@@ -81,9 +79,10 @@ deploy:
     monkeypatch.setattr(pipeline.requests, "get", lambda *args, **kwargs: FakeResp())
     pipeline._prefetch_weights(bp_dir)
 
-    out = bp_dir / ".mdp" / "weights" / "tiny-tiny.bin"
-    assert out.exists()
-    assert out.read_bytes() == b"abc123"
+    out_dir = bp_dir / ".mdp" / "weights"
+    matches = list(out_dir.glob("*-tiny.bin"))
+    assert len(matches) == 1
+    assert matches[0].read_bytes() == b"abc123"
 
 
 def test_local_rollout_uses_image_default_command(tmp_path, monkeypatch):

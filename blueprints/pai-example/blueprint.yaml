@@ -4,10 +4,8 @@ provider: pai
 build:
   context: .
   dockerfile: Dockerfile
-  model:
-    weights:
-      - name: model-weights
-        url: https://huggingface.co/hf-internal-testing/tiny-random-BertModel/resolve/main/config.json
+  weights:
+    - https://huggingface.co/hf-internal-testing/tiny-random-BertModel/resolve/main/config.json
 
 deploy:
   default: pai
