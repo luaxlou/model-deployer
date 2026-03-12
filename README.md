@@ -39,7 +39,7 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 
 - `mdp build -d <dir> [--provider local]`：构建镜像并输出 image
 - `mdp rollout -d <dir> --image <image> [--provider local]`：启动部署并输出 `endpoint/container_name/status`
-- `mdp deploy -d <dir> [--provider local]`：一键执行 `lint -> build -> rollout -> verify`
+- `mdp deploy -d <dir> [--provider local] [--build-only]`：默认执行 `lint -> build -> rollout -> verify`，加 `--build-only` 时仅执行 `lint -> build`
 
 ### 3) 验证与回滚
 
@@ -60,7 +60,7 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 - `--on-fail`: `rollback`
 - `--env`: `prod`
 
-`mdp deploy` 默认流水线：
+`mdp deploy` 默认流水线（不带 `--build-only`）：
 1. `lint`
 2. `build`
 3. `rollout`

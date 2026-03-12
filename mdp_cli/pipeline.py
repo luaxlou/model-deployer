@@ -72,12 +72,14 @@ def verify(
     return True, "verification passed"
 
 
-def deploy(blueprint_dir: Path, provider: str, env: str, on_fail: str) -> dict:
+def deploy(blueprint_dir: Path, provider: str, env: str, on_fail: str, build_only: bool = False) -> dict:
     ok, errs = lint(blueprint_dir)
     if not ok:
         return {"ok": False, "stage": "lint", "errors": errs}
 
     image = build(blueprint_dir, provider)
+    if build_only:
+        return {"ok": True, "stage": "build", "image": image, "mode": "build-only"}
 
     rollout_res = rollout(blueprint_dir, provider, image=image, env=env)
 

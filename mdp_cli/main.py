@@ -109,9 +109,10 @@ def deploy(
     env: str = typer.Option("prod", "--env"),
     follow: bool = typer.Option(True, "--follow/--no-follow"),
     on_fail: str = typer.Option("rollback", "--on-fail"),
+    build_only: bool = typer.Option(False, "--build-only", help="Only run lint + build"),
 ):
     _ = follow
-    result = run_deploy(d, provider=provider, env=env, on_fail=on_fail)
+    result = run_deploy(d, provider=provider, env=env, on_fail=on_fail, build_only=build_only)
     _echo_json(result)
 
     if not result.get("ok", False):
