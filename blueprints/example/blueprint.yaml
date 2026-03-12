@@ -10,7 +10,7 @@ build:
     code: model/model.py
     weights:
       - name: model-weights
-        url: https://huggingface.co/hf-internal-testing/tiny-random-BertModel/resolve/main/config.json
+        url: https://raw.githubusercontent.com/luaxlou/model-deployer/main/blueprints/example/model/tiny_model.joblib
 
 deploy:
   default: local
