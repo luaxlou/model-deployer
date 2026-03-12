@@ -5,8 +5,8 @@ from mdp_cli.blueprint import load_blueprint, validate_blueprint_dir
 
 def test_load_blueprint_defaults():
     bp = load_blueprint(Path("blueprints/example"))
-    assert bp.deploy.health_path == "/healthz"
-    assert bp.deploy.health_port == 18080
+    assert bp.deploy.local.health_path == "/healthz"
+    assert bp.deploy.local.health_port == 18080
     assert bp.verify.timeout_sec == 60
 
 
@@ -37,14 +37,13 @@ build:
       - name: model-weights
         url: https://example.com/model.bin
 deploy:
-  pai:
-    region: cn-hangzhou
-    workspace_id: "ws-1"
-    service_name: demo
-    image: registry.cn-hangzhou.aliyuncs.com/ns/demo:latest
-    service_config: pai-service.json
-    status_cmd: "aliyun pai GetService --ServiceName {service_name}"
-    logs_cmd: "aliyun pai ListServiceLogs --ServiceName {service_name} --PageSize {tail}"
+  providers:
+    - name: pai
+      region: cn-hangzhou
+      workspace_id: "ws-1"
+      service_name: demo
+      image: registry.cn-hangzhou.aliyuncs.com/ns/demo:latest
+      service_config: pai-service.json
 """.strip()
         + "\n",
         encoding="utf-8",
@@ -103,12 +102,10 @@ pai:
   service_name: demo
   image: registry.cn-hangzhou.aliyuncs.com/ns/demo:latest
   service_config: pai-service.json
-  status_cmd: "aliyun pai GetService --ServiceName {service_name}"
-  logs_cmd: "aliyun pai ListServiceLogs --ServiceName {service_name} --PageSize {tail}"
 """.strip()
         + "\n",
         encoding="utf-8",
     )
 
     errs = validate_blueprint_dir(bp_dir)
-    assert "top-level 'pai' is not allowed; use deploy.pai" in errs
+    assert "top-level 'pai' is not allowed; use deploy.providers with name='pai'" in errs

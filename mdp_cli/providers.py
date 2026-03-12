@@ -5,7 +5,6 @@ from pathlib import Path
 import json
 import re
 import socket
-import shlex
 import subprocess
 import tempfile
 import time
@@ -65,8 +64,9 @@ class LocalProvider:
 
     def rollout(self, blueprint_dir: Path, bp: Blueprint, image: str, env: str) -> RolloutResult:
         _ = blueprint_dir
+        cfg = bp.deploy.local if self.name == "local" else bp.deploy.eas
         container_name = _safe_name(f"{bp.name}-{env}")
-        host_port = _find_host_port(bp.deploy.health_port)
+        host_port = _find_host_port(cfg.health_port)
 
         # Best effort: remove previous container with same name.
         subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, text=True)
@@ -74,12 +74,12 @@ class LocalProvider:
         run_cmd = [
             "docker", "run", "-d",
             "--name", container_name,
-            "-p", f"{host_port}:{bp.deploy.health_port}",
+            "-p", f"{host_port}:{cfg.health_port}",
             image,
         ]
 
-        if bp.deploy.start_command:
-            run_cmd.extend(["sh", "-lc", bp.deploy.start_command])
+        if cfg.start_command:
+            run_cmd.extend(["sh", "-lc", cfg.start_command])
 
         _run(run_cmd)
         endpoint = f"http://127.0.0.1:{host_port}"
@@ -114,13 +114,6 @@ class LocalProvider:
 # Keep eas alias for compatibility; current behavior is local Docker execution.
 class EasProvider(LocalProvider):
     name = "eas"
-
-
-def _render_cmd(template: str, params: dict[str, str]) -> list[str]:
-    text = template
-    for k, v in params.items():
-        text = text.replace("{" + k + "}", v)
-    return shlex.split(text)
 
 
 class PaiProvider:
@@ -208,25 +201,56 @@ class PaiProvider:
     def status(self, bp: Blueprint) -> dict:
         self._ensure_cli()
         params = self._params(bp, image=bp.deploy.pai.image)
-        cmd = _render_cmd(bp.deploy.pai.status_cmd, params)
+        cmd = [
+            "aliyun",
+            "pai",
+            "GetService",
+            "--RegionId",
+            params["region"],
+            "--WorkspaceId",
+            params["workspace_id"],
+            "--ServiceName",
+            params["service_name"],
+        ]
         out = _run(cmd)
         return {"deployment": bp.name, "provider": self.name, "status_raw": out}
 
     def logs(self, bp: Blueprint, tail: int) -> list[str]:
         self._ensure_cli()
         params = self._params(bp, image=bp.deploy.pai.image)
-        params["tail"] = str(tail)
-        cmd = _render_cmd(bp.deploy.pai.logs_cmd, params)
+        cmd = [
+            "aliyun",
+            "pai",
+            "ListServiceLogs",
+            "--RegionId",
+            params["region"],
+            "--WorkspaceId",
+            params["workspace_id"],
+            "--ServiceName",
+            params["service_name"],
+            "--PageSize",
+            str(tail),
+        ]
         out = _run(cmd)
         return out.splitlines()
 
     def cost(self, bp: Blueprint, group_by: str) -> dict:
         self._ensure_cli()
-        if not bp.deploy.pai.cost_cmd:
-            return {"deployment": bp.name, "group_by": group_by, "total_usd": -1}
         params = self._params(bp, image=bp.deploy.pai.image)
-        params["group_by"] = group_by
-        out = _run(_render_cmd(bp.deploy.pai.cost_cmd, params))
+        cmd = [
+            "aliyun",
+            "pai",
+            "QueryServiceCost",
+            "--RegionId",
+            params["region"],
+            "--WorkspaceId",
+            params["workspace_id"],
+            "--ServiceName",
+            params["service_name"],
+            "--GroupBy",
+            group_by,
+        ]
+        out = _run(cmd)
         return {"deployment": bp.name, "group_by": group_by, "cost_raw": out}
 
 

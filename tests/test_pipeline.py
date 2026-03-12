@@ -6,7 +6,8 @@ from mdp_cli import pipeline
 def test_deploy_build_only_skips_rollout_and_verify(monkeypatch):
     calls = []
 
-    def fake_build(_dir: Path):
+    def fake_build(_dir: Path, provider: str):
+        assert provider == "local"
         calls.append("build")
         return "example:tag"
 
@@ -24,6 +25,7 @@ def test_deploy_build_only_skips_rollout_and_verify(monkeypatch):
 
     result = pipeline.deploy(
         Path("blueprints/example"),
+        provider="local",
         env="prod",
         build_only=True,
     )

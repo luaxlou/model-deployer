@@ -49,8 +49,9 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 ### 2) 构建与发布
 
 - `mdp build -d <dir>`：构建镜像并输出 image
+- `mdp build -d <dir> [--provider <name>]`：等价于 `mdp deploy -d <dir> --build-only [--provider <name>]`
 - `mdp rollout -d <dir> --image <image>`：启动部署并输出 `endpoint/container_name/status`
-- `mdp deploy -d <dir> [--build-only]`：默认执行 `build -> deploy -> verify`，加 `--build-only` 时仅执行 `build`
+- `mdp deploy -d <dir> [--provider <name>] [--build-only]`：默认执行 `build -> deploy -> verify`，加 `--build-only` 时仅执行 `build`
 
 ### 3) 验证
 
@@ -65,7 +66,7 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 ## 默认参数与行为
 
 全局默认：
-- `provider`: 由 `blueprint.yaml` 的 `provider` 字段决定
+- `provider`: 优先级为 `--provider` > `deploy.default` > 交互式选择
 - `--follow`: `true`
 - `--env`: `prod`
 
@@ -129,21 +130,21 @@ curl -X POST <endpoint>/predict \
 
 - `local`：已实现，基于真实 Docker build/run/logs/inspect
 - `eas`：当前兼容映射到 local 行为（占位）
-- `pai`：已接入 JSON 配置更新模式（依赖 `aliyun` CLI + `blueprint.deploy.pai` 配置）
+- `pai`：已接入 JSON 配置更新模式（依赖 `blueprint.deploy.providers` 中 `name=pai` 的配置）
 
 ## PAI 使用说明（JSON 配置更新）
 
-`provider: pai` 时，`mdp` 会读取 `deploy.pai.service_config` 指向的 JSON 文件，并调用：
+`provider: pai` 时，`mdp` 会读取 `deploy.providers[name=pai].service_config` 指向的 JSON 文件，并调用：
 
 - `aliyun pai UpdateService --Body file://<generated_json>`
 
 其中，工具会在部署时自动覆盖 JSON 中的以下字段：
 - `image`
 
-其余运维命令仍由 `blueprint.yaml` 的命令模板控制：
-- `deploy.pai.status_cmd`
-- `deploy.pai.logs_cmd`
-- `deploy.pai.cost_cmd`（可选）
+其余运维命令使用工具内置约定：
+- `status` -> `aliyun pai GetService`
+- `logs` -> `aliyun pai ListServiceLogs`
+- `cost` -> `aliyun pai QueryServiceCost`
 
 可用变量：
 - `{service_name}`

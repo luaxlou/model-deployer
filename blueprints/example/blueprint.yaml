@@ -13,9 +13,12 @@ build:
         url: https://huggingface.co/hf-internal-testing/tiny-random-BertModel/resolve/main/config.json
 
 deploy:
-  health_path: /healthz
-  health_port: 18080
-  start_command: uvicorn service:app --host 0.0.0.0 --port 18080
+  default: local
+  providers:
+    - name: local
+      health_path: /healthz
+      health_port: 18080
+      start_command: uvicorn service:app --host 0.0.0.0 --port 18080
 
 verify:
   timeout_sec: 60

@@ -39,21 +39,21 @@ build:
         sha256: "optional"
 
 deploy:
-  health_path: /healthz
-  health_port: 18080
-  start_command: uvicorn service:app --host 0.0.0.0 --port 18080
-  pai:
-    region: cn-hangzhou
-    workspace_id: "your-workspace-id"
-    service_name: your-service
-    endpoint: https://your-pai-endpoint.example.com
-    image: registry.cn-hangzhou.aliyuncs.com/your-namespace/your-image:tag
-    # image_repo 与 image 二选一；使用 image_repo 时，工具会构建并 push
-    image_repo: registry.cn-hangzhou.aliyuncs.com/your-namespace/your-image
-    service_config: pai-service.json
-    status_cmd: "aliyun pai GetService --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name}"
-    logs_cmd: "aliyun pai ListServiceLogs --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name} --PageSize {tail}"
-    cost_cmd: "aliyun pai QueryServiceCost --RegionId {region} --WorkspaceId {workspace_id} --ServiceName {service_name}"
+  default: pai
+  providers:
+    - name: local
+      health_path: /healthz
+      health_port: 18080
+      start_command: uvicorn service:app --host 0.0.0.0 --port 18080
+    - name: pai
+      region: cn-hangzhou
+      workspace_id: "your-workspace-id"
+      service_name: your-service
+      endpoint: https://your-pai-endpoint.example.com
+      image: registry.cn-hangzhou.aliyuncs.com/your-namespace/your-image:tag
+      # image_repo 与 image 二选一；使用 image_repo 时，工具会构建并 push
+      image_repo: registry.cn-hangzhou.aliyuncs.com/your-namespace/your-image
+      service_config: pai-service.json
 
 verify:
   timeout_sec: 300
@@ -65,19 +65,17 @@ verify:
 ## 必填项
 
 - `name`
-- `provider`（`local` / `eas` / `pai`）
 - `build.model.weights[*].name`
 - `build.model.weights[*].url`（必须是 `http/https`）
 - `build` 对应文件存在（`Dockerfile`、`requirements.txt`、`service.py`）
+- `deploy.providers` 至少配置一种部署方式（`name` 为 `local` / `eas` / `pai`）
 
-当 `provider: pai` 时，额外必填：
-- `deploy.pai.region`
-- `deploy.pai.workspace_id`
-- `deploy.pai.service_name`
-- `deploy.pai.image` 或 `deploy.pai.image_repo`
-- `deploy.pai.service_config`（JSON 文件路径，基于 blueprint 目录）
-- `deploy.pai.status_cmd`
-- `deploy.pai.logs_cmd`
+当配置 `deploy.providers[].name = pai` 时，额外必填：
+- `region`
+- `workspace_id`
+- `service_name`
+- `image` 或 `image_repo`
+- `service_config`（JSON 文件路径，基于 blueprint 目录）
 
 ## 默认值
 
@@ -86,9 +84,11 @@ verify:
 - `build.dockerfile`: `Dockerfile`
 - `build.requirements`: `requirements.txt`
 - `build.service`: `service.py`
-- `deploy.health_path`: `/healthz`
-- `deploy.health_port`: `18080`（示例）
-- `deploy.start_command`: `uvicorn service:app --host 0.0.0.0 --port 18080`（示例）
+- `local` provider 默认：
+  - `health_path`: `/healthz`
+  - `health_port`: `8080`
+  - `start_command`: `python service.py`
+- `deploy.default`: `""`（为空时按命令参数/交互选择 provider）
 - `verify.timeout_sec`: `300`
 - `verify.interval_sec`: `5`
 - `verify.script`: `""`（空字符串表示不执行脚本）
