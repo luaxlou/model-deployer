@@ -143,6 +143,120 @@ deploy:
     assert extracted.read_bytes() == b"abc123"
 
 
+def test_prefetch_weights_downloads_hf_repo_files(tmp_path, monkeypatch):
+    bp_dir = tmp_path / "bp"
+    bp_dir.mkdir()
+    (bp_dir / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
+    (bp_dir / "blueprint.yaml").write_text(
+        """
+name: weight-hf-repo
+provider: local
+build:
+  weights:
+    - https://huggingface.co/ZhengPeng7/BiRefNet_dynamic
+deploy:
+  providers:
+    - name: local
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    downloaded = []
+
+    def fake_list_repo_files(repo_id, repo_type, revision=None, token=None):
+        assert repo_id == "ZhengPeng7/BiRefNet_dynamic"
+        assert repo_type == "model"
+        assert revision is None
+        assert token is None
+        return ["config.json", "model.safetensors", "subdir/tokenizer.json"]
+
+    def fake_hf_hub_download(
+        repo_id,
+        filename,
+        repo_type,
+        revision,
+        local_dir,
+        local_dir_use_symlinks,
+        token=None,
+    ):
+        assert token is None
+        downloaded.append((repo_id, filename, repo_type, revision, Path(local_dir), local_dir_use_symlinks))
+        path = Path(local_dir) / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x")
+        return str(path)
+
+    monkeypatch.setattr(pipeline, "list_repo_files", fake_list_repo_files, raising=False)
+    monkeypatch.setattr(pipeline, "hf_hub_download", fake_hf_hub_download, raising=False)
+    monkeypatch.setattr(
+        pipeline.requests,
+        "get",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("requests.get should not be used for HF repo")),
+    )
+
+    pipeline._prefetch_weights(bp_dir)
+
+    out_dir = bp_dir / ".mdp" / "weights"
+    assert (out_dir / "config.json").exists()
+    assert (out_dir / "model.safetensors").exists()
+    assert (out_dir / "subdir" / "tokenizer.json").exists()
+    assert [item[1] for item in downloaded] == ["config.json", "model.safetensors", "subdir/tokenizer.json"]
+
+
+def test_prefetch_weights_hf_repo_cleans_hf_cache_dir(tmp_path, monkeypatch):
+    bp_dir = tmp_path / "bp"
+    bp_dir.mkdir()
+    (bp_dir / "Dockerfile").write_text("FROM python:3.11-slim\n", encoding="utf-8")
+    (bp_dir / "blueprint.yaml").write_text(
+        """
+name: weight-hf-repo-clean-cache
+provider: local
+build:
+  weights:
+    - https://huggingface.co/ZhengPeng7/BiRefNet_dynamic
+deploy:
+  providers:
+    - name: local
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    def fake_list_repo_files(repo_id, repo_type, revision=None, token=None):
+        assert repo_id == "ZhengPeng7/BiRefNet_dynamic"
+        assert repo_type == "model"
+        assert revision is None
+        assert token is None
+        return ["model.safetensors"]
+
+    def fake_hf_hub_download(
+        repo_id,
+        filename,
+        repo_type,
+        revision,
+        local_dir,
+        local_dir_use_symlinks,
+        token=None,
+    ):
+        _ = (repo_id, filename, repo_type, revision, local_dir_use_symlinks, token)
+        out_dir = Path(local_dir)
+        (out_dir / filename).write_bytes(b"x")
+        cache_meta = out_dir / ".cache" / "huggingface" / "download" / "foo.metadata"
+        cache_meta.parent.mkdir(parents=True, exist_ok=True)
+        cache_meta.write_text("meta", encoding="utf-8")
+        return str(out_dir / filename)
+
+    monkeypatch.setattr(pipeline, "list_repo_files", fake_list_repo_files, raising=False)
+    monkeypatch.setattr(pipeline, "hf_hub_download", fake_hf_hub_download, raising=False)
+
+    pipeline._prefetch_weights(bp_dir)
+
+    out_dir = bp_dir / ".mdp" / "weights"
+    assert (out_dir / "model.safetensors").exists()
+    assert not (out_dir / ".cache").exists()
+
+
 def test_deploy_uses_last_build_image_when_image_not_provided(tmp_path, monkeypatch):
     bp_dir = tmp_path / "bp"
     bp_dir.mkdir()

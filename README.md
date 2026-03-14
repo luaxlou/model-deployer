@@ -109,6 +109,7 @@ Blueprint 目录规范见：[`docs/blueprint-spec.md`](./docs/blueprint-spec.md)
 - 仅当 `verify.script` 显式配置时执行对应脚本
 - `weights` 从 `blueprint.yaml` 的 `build.weights`（URL 字符串数组）读取
 - `build` 会先下载 `weights` 到 `<blueprint_dir>/.mdp/weights/`，再执行镜像构建
+- 若 `weights` 项是 Hugging Face 仓库地址（例如 `https://huggingface.co/ZhengPeng7/BiRefNet_dynamic`），会使用 `huggingface_hub` 按仓库文件清单逐个下载到 `<blueprint_dir>/.mdp/weights/`（建议先执行 `huggingface-cli login`），下载完成后会自动清理 `<blueprint_dir>/.mdp/weights/.cache/`
 - 若权重文件是压缩包（`.zip/.tar/.tar.gz/.tgz`），会自动解压到 `<blueprint_dir>/.mdp/weights/` 并保留包内目录结构
 - 镜像 tag 默认使用 `<git-sha-8>`，不可用时回退到 timestamp
 - local provider 自动选择可用主机端口，避免端口冲突

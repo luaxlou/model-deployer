@@ -4,17 +4,24 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tarfile
 import time
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 import zipfile
 
 import requests
 
 from mdp_cli.blueprint import load_blueprint, validate_blueprint_dir
 from mdp_cli.providers import get_provider
+
+try:
+    from huggingface_hub import hf_hub_download, list_repo_files
+except ImportError:  # pragma: no cover
+    hf_hub_download = None
+    list_repo_files = None
 
 
 def _last_build_state_path(blueprint_dir: Path) -> Path:
@@ -127,6 +134,59 @@ def _download_file(url: str, target: Path) -> None:
         part.replace(target)
 
 
+def _parse_hf_repo_url(url: str) -> tuple[str, str | None] | None:
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        return None
+    if parsed.netloc not in ("huggingface.co", "www.huggingface.co"):
+        return None
+
+    parts = [p for p in parsed.path.split("/") if p]
+    if len(parts) < 2:
+        return None
+
+    # Model repo URL shape: https://huggingface.co/<org_or_user>/<repo_name>
+    repo_id = f"{parts[0]}/{parts[1]}"
+    revision: str | None = None
+
+    if len(parts) >= 4 and parts[2] == "tree":
+        revision = parts[3]
+    else:
+        revision = parse_qs(parsed.query).get("revision", [None])[0]
+
+    if len(parts) > 2 and parts[2] not in ("tree",):
+        # This is likely a file URL (e.g. /resolve/...); keep existing direct download path.
+        return None
+
+    return repo_id, revision
+
+
+def _download_hf_repo(repo_id: str, output_dir: Path, revision: str | None = None) -> None:
+    if list_repo_files is None or hf_hub_download is None:
+        raise RuntimeError(
+            "huggingface_hub is required for Hugging Face repo weights; install dependency and retry"
+        )
+
+    files = list_repo_files(repo_id=repo_id, repo_type="model", revision=revision)
+    for rel_path in files:
+        print(f"[mdp] downloading weights from HF repo {repo_id}: {rel_path}", file=sys.stderr, flush=True)
+        hf_hub_download(
+            repo_id=repo_id,
+            filename=rel_path,
+            repo_type="model",
+            revision=revision,
+            local_dir=str(output_dir),
+            local_dir_use_symlinks=False,
+        )
+
+
+def _cleanup_hf_cache_dir(output_dir: Path) -> None:
+    cache_dir = output_dir / ".cache"
+    if cache_dir.exists() and cache_dir.is_dir():
+        shutil.rmtree(cache_dir)
+        print(f"[mdp] cleaned Hugging Face cache dir: {cache_dir}", file=sys.stderr, flush=True)
+
+
 def _is_archive(path: Path) -> bool:
     name = path.name.lower()
     return name.endswith(".zip") or name.endswith(".tar") or name.endswith(".tar.gz") or name.endswith(".tgz")
@@ -150,12 +210,21 @@ def _prefetch_weights(blueprint_dir: Path) -> None:
     bp = load_blueprint(blueprint_dir)
     out_dir = blueprint_dir / ".mdp" / "weights"
     out_dir.mkdir(parents=True, exist_ok=True)
+    used_hf_repo = False
     for url in bp.build.weights:
+        hf_repo = _parse_hf_repo_url(url)
+        if hf_repo:
+            repo_id, revision = hf_repo
+            _download_hf_repo(repo_id, out_dir, revision=revision)
+            used_hf_repo = True
+            continue
         target = _weight_target_path(blueprint_dir, url)
         if not target.exists():
             _download_file(url, target)
         if _is_archive(target):
             _extract_archive(target, out_dir)
+    if used_hf_repo:
+        _cleanup_hf_cache_dir(out_dir)
 
 
 def build(blueprint_dir: Path, provider: str) -> str:

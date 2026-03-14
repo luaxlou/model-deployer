@@ -56,6 +56,7 @@ verify:
 
 - `name`
 - `build.weights[*]`（必须是 `http/https` URL 字符串）
+  - 当 URL 是 Hugging Face 仓库根地址（例如 `https://huggingface.co/<org>/<repo>` 或 `.../tree/<revision>`）时，构建前会通过 `huggingface_hub` 按仓库文件列表逐个下载（建议先执行 `huggingface-cli login`）
 - `build.dockerfile` 对应文件存在（`Dockerfile`）
 - `deploy.providers` 至少配置一种部署方式（`name` 为 `local` / `eas` / `pai`）
 
