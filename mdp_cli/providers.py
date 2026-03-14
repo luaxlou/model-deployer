@@ -7,7 +7,6 @@ import re
 import socket
 import subprocess
 import sys
-import tempfile
 import time
 
 from mdp_cli.blueprint import Blueprint
@@ -259,28 +258,20 @@ class PaiProvider:
             else:
                 cfg["image"] = new_private_image
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as tmp:
-            json.dump(cfg, tmp, ensure_ascii=False)
-            tmp.flush()
-            body_file = tmp.name
-
-        try:
-            cmd = [
-                "aliyun",
-                "pai",
-                "UpdateService",
-                "--RegionId",
-                pai.region,
-                "--WorkspaceId",
-                pai.workspace_id,
-                "--ServiceName",
-                params["service_name"],
-                "--Body",
-                f"file://{body_file}",
-            ]
-            _run_with_heartbeat(cmd, step="pai update service")
-        finally:
-            Path(body_file).unlink(missing_ok=True)
+        cmd = [
+            "aliyun",
+            "eas",
+            "UpdateService",
+            "--region",
+            pai.region,
+            "--ClusterId",
+            pai.region,
+            "--ServiceName",
+            params["service_name"],
+            "--body",
+            json.dumps(cfg, ensure_ascii=False),
+        ]
+        _run_with_heartbeat(cmd, step="pai update service")
         endpoint = pai.endpoint
         if not endpoint:
             raise RuntimeError("pai.endpoint is required for verify after rollout")

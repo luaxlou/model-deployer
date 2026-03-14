@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 from mdp_cli.blueprint import Blueprint, BuildConfig, DeployConfig, PaiDeployConfig
 from mdp_cli.providers import PaiProvider
@@ -103,8 +102,8 @@ def test_pai_rollout_updates_eas_container_image_with_built_tag(tmp_path, monkey
     def fake_run_with_heartbeat(cmd, step, interval_sec=5):
         _ = step
         _ = interval_sec
-        body_path = cmd[cmd.index("--Body") + 1].replace("file://", "")
-        body["json"] = json.loads(Path(body_path).read_text(encoding="utf-8"))
+        body["cmd"] = cmd
+        body["json"] = json.loads(cmd[cmd.index("--body") + 1])
         return "ok"
 
     monkeypatch.setattr("mdp_cli.providers._run_with_heartbeat", fake_run_with_heartbeat)
@@ -116,6 +115,11 @@ def test_pai_rollout_updates_eas_container_image_with_built_tag(tmp_path, monkey
         env="prod",
     )
 
+    assert body["cmd"][:3] == ["aliyun", "eas", "UpdateService"]
+    assert "--ClusterId" in body["cmd"]
+    assert body["cmd"][body["cmd"].index("--ClusterId") + 1] == "cn-hangzhou"
+    assert "--ServiceName" in body["cmd"]
+    assert "--body" in body["cmd"]
     assert body["json"]["containers"][0]["image"] == (
         "registry-vpc.cn-hangzhou.aliyuncs.com/private-ns/demo:abc12345"
     )
